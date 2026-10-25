@@ -216,7 +216,8 @@ async function admin(t) {
 
     const update = (fn, fromServer) => guard(async () => { g = await fn(); syncEx(fromServer); const open = [...document.querySelectorAll('details[open]')].map(d => d.dataset.id); render(); open.forEach(i => { const d = document.querySelector(`details[data-id="${i}"]`); if (d) d.open = true; }); });
     document.getElementById('gsave').onclick = update(() => api('PUT', base, { name: gname.value, budget: gbudget.value }));
-    document.getElementById('padd').onclick = update(() => api('POST', base + '/participants', { name: pname.value }));
+    const addParticipant = update(() => api('POST', base + '/participants', { name: pname.value }));
+    document.getElementById('padd').onclick = async () => { await addParticipant(); document.getElementById('pname').focus(); };
     pname.onkeydown = e => { if (e.key === 'Enter') padd.click(); };
     const setEx = (p, o, on) => { ex[p] = ex[p].filter(e => e !== o); if (on) ex[p].push(o); };
     document.querySelectorAll('input[data-p]').forEach(c => c.onchange = () => {
