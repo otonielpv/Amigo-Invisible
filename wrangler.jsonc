@@ -1,6 +1,7 @@
 {
   "name": "amigo-invisible",
   "main": "src/worker.js",
+  "workers_dev": true,
   "compatibility_date": "2025-01-01",
   "assets": {
     "directory": "public",
