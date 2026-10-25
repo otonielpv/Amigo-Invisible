@@ -25,7 +25,7 @@
   .err { color:var(--seal); }
 
   input, textarea, button, .filebtn { font:inherit; border-radius:0; }
-  input[type=text], textarea { width:100%; padding:11px 2px; color:var(--ink); background:transparent; border:0; border-bottom:1.5px solid var(--ink); font-size:1.05rem; -webkit-appearance:none; }
+  input[type=text], input[type=password], textarea { width:100%; padding:11px 2px; color:var(--ink); background:transparent; border:0; border-bottom:1.5px solid var(--ink); font-size:1.05rem; -webkit-appearance:none; }
   textarea { padding:10px; background:var(--sheet); border:1.5px solid var(--ink); resize:vertical; }
   ::placeholder { color:#8d8a78; font-style:italic; }
   :focus-visible { outline:3px solid var(--seal); outline-offset:2px; }
@@ -35,7 +35,8 @@
   button.sec, .filebtn { background:transparent; color:var(--ink); }
   button.danger { background:transparent; color:var(--seal); border-color:var(--seal); }
   .row { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-top:12px; }
-  .row > input[type=text] { flex:1 1 200px; width:auto; }
+  .row > input[type=text], .row > input[type=password] { flex:1 1 200px; width:auto; }
+  [hidden] { display:none !important; }
   .row > button, .row > a { flex:1 1 130px; } .row > a button { width:100%; }
   .row > span { flex:1 1 100%; }
 
@@ -119,12 +120,14 @@ function home() {
   $app.innerHTML = `<div class="home">
     <div class="card"><h2>Crear un grupo</h2>
       <p class="muted">Un grupo por familia (por ejemplo «Mi familia» y «Familia de mi mujer»).</p>
-      <div class="row"><input id="name" type="text" placeholder="Nombre de la familia"><input id="budget" type="text" placeholder="Presupuesto (ej. 20 €)">
-      <button id="go">Crear</button></div></div>
+      <div class="row"><input id="name" type="text" placeholder="Nombre de la familia"><input id="budget" type="text" placeholder="Presupuesto (ej. 20 €)"></div>
+      <div class="row" id="pwrow" hidden><input id="pw" type="password" placeholder="Contraseña para crear grupos" autocomplete="current-password"></div>
+      <div class="row"><button id="go">Crear</button></div></div>
     ${groups.length ? `<div class="card"><h2>Tus grupos</h2>${groups.map(g => `<p><a href="/a/${g.t}">${esc(g.name)}</a></p>`).join('')}</div>` : ''}</div>`;
+  api('GET', '/api/config').then(c => { if (c.passwordRequired) document.getElementById('pwrow').hidden = false; }).catch(() => {});
   document.getElementById('go').onclick = guard(async () => {
     const name = document.getElementById('name').value;
-    const { adminToken } = await api('POST', '/api/groups', { name, budget: document.getElementById('budget').value });
+    const { adminToken } = await api('POST', '/api/groups', { name, budget: document.getElementById('budget').value, password: document.getElementById('pw').value });
     store.add({ t: adminToken, name });
     location.href = '/a/' + adminToken;
   });

@@ -55,7 +55,11 @@ export async function handleApi(request, env) {
   }
   let m;
 
+  // Contraseña opcional (secreto CREATE_PASSWORD) solo para crear grupos; los enlaces de las familias no la necesitan.
+  if (method === 'GET' && url === '/api/config') return json(200, { passwordRequired: !!env.CREATE_PASSWORD });
+
   if (method === 'POST' && url === '/api/groups') {
+    if (env.CREATE_PASSWORD && String(body.password ?? '') !== env.CREATE_PASSWORD) return json(403, { error: 'Contraseña incorrecta' });
     const name = clean(body.name, 60);
     if (!name) return json(400, { error: 'Falta el nombre' });
     const adminToken = token();

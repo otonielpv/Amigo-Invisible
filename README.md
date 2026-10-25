@@ -21,3 +21,7 @@ El proyecto se despliega con `npx wrangler deploy` usando `wrangler.jsonc`:
 - `/api/*` lo atiende `src/worker.js`, que guarda los datos en D1 (binding `DB`). Las tablas se crean solas.
 - Si usas otra base de datos D1, cambia `database_id` en `wrangler.jsonc` (se ve en el panel: Storage & Databases → D1).
 - Conecta el repositorio en Workers & Pages → Create → Import a repository. Comando de build: vacío. Comando de deploy: `npx wrangler deploy`.
+
+## Contraseña para crear grupos (opcional)
+
+Define el secreto `CREATE_PASSWORD` en Cloudflare (proyecto → Settings → Variables and secrets → Add → tipo **Secret**). Sin él, cualquiera con la dirección puede crear grupos. Los enlaces de cada familia (`/a`, `/e`, `/p`) no usan contraseña: su protección es que llevan un código largo imposible de adivinar. En local, ponla en un fichero `.dev.vars` (`CREATE_PASSWORD=...`).
