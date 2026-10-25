@@ -144,14 +144,16 @@ async function admin(t) {
       <details class="p" data-id="${p.id}"><summary>${esc(p.name)}</summary>
         <div>
           <p class="muted">Regalos que ha pedido: ${p.giftCount}. Cada persona los añade desde su enlace de edición.</p>
-          ${[
-            ['Enlace para editar sus regalos', '/e/' + p.editToken, `Hola ${p.name}, apunta aquí los regalos que te gustaría recibir en el amigo invisible «${g.name}» (puedes cambiarlos cuando quieras): `],
-            ['Enlace para ver a quién le regala', '/p/' + p.token, `Hola ${p.name}, mira a quién le haces el regalo en el amigo invisible «${g.name}»: `],
-          ].map(([label, path, msg]) => `
-          <p class="lbl" style="margin-top:20px">${label}</p><p class="muted" style="margin:2px 0 6px">Solo para ${esc(p.name)}</p>
-          <div class="link">${origin}${path}</div>
-          <div class="row"><button class="sec copy" data-url="${origin}${path}">Copiar</button>
-          <a href="https://wa.me/?text=${encodeURIComponent(msg + origin + path)}" target="_blank" rel="noopener"><button class="sec" type="button">WhatsApp</button></a></div>`).join('')}
+          ${(() => {
+            const edit = origin + '/e/' + p.editToken, view = origin + '/p/' + p.token;
+            const msg = `Hola ${p.name}, te cuento lo del amigo invisible «${g.name}»${g.budget ? ` (presupuesto: ${g.budget})` : ''}.\n\n1) Apunta aquí los regalos que te gustaría recibir. Puedes cambiarlos cuando quieras:\n${edit}\n\n2) Cuando se haga el sorteo, aquí verás a quién le haces el regalo y lo que le gustaría:\n${view}`;
+            return `<div class="row" style="margin-top:12px"><a href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener"><button type="button">Enviar por WhatsApp</button></a>
+              <button class="sec copy" data-text="${esc(msg)}">Copiar mensaje</button></div>
+              <p class="muted">Un solo mensaje con los dos enlaces, solo para ${esc(p.name)}.</p>
+              ${[['Enlace para editar sus regalos', edit], ['Enlace para ver a quién le regala', view]].map(([label, url]) => `
+              <p class="lbl" style="margin-top:16px">${label}</p><div class="link">${url}</div>
+              <div class="row"><button class="sec copy" data-text="${esc(url)}">Copiar enlace</button></div>`).join('')}`;
+          })()}
           <div class="row" style="margin-top:20px"><button class="danger del">Eliminar a ${esc(p.name)}</button></div>
         </div></details>`).join('')}
     </div></div><div>
@@ -197,7 +199,7 @@ async function admin(t) {
         if (!confirm('¿Eliminar a este participante? Habrá que repetir el sorteo.')) return g;
         return api('DELETE', url);
       });
-      d.querySelectorAll('.copy').forEach(c => c.onclick = e => { navigator.clipboard.writeText(e.target.dataset.url); e.target.textContent = '¡Copiado!'; });
+      d.querySelectorAll('.copy').forEach(c => c.onclick = e => { navigator.clipboard.writeText(e.target.dataset.text); e.target.textContent = '¡Copiado!'; });
     });
   };
   render();
