@@ -28,7 +28,10 @@
   input[type=text], input[type=password], textarea { width:100%; padding:11px 2px; color:var(--ink); background:transparent; border:0; border-bottom:1.5px solid var(--ink); font-size:1.05rem; -webkit-appearance:none; }
   textarea { padding:10px; background:var(--sheet); border:1.5px solid var(--ink); resize:vertical; }
   ::placeholder { color:#8d8a78; font-style:italic; }
-  :focus-visible { outline:3px solid var(--seal); outline-offset:2px; }
+  :focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+  /* En los campos de texto, el foco engrosa la línea de tinta en vez de dibujar un recuadro */
+  input[type=text]:focus-visible, input[type=password]:focus-visible { outline:0; box-shadow:0 2px 0 0 var(--ink); }
+  textarea:focus-visible { outline:0; background:var(--sheet); box-shadow:inset 0 0 0 1px var(--ink); }
   button, .filebtn { display:inline-flex; align-items:center; justify-content:center; min-height:48px; padding:0 18px; border:1.5px solid var(--ink); background:var(--ink); color:var(--sheet); cursor:pointer;
     font:600 .8rem/1 system-ui,sans-serif; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; }
   button:active { transform:translateY(1px); }
