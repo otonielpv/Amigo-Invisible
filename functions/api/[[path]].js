@@ -24,7 +24,7 @@ function cleanGifts(list) {
 let ready;
 const init = db => ready ||= db.batch([
   db.prepare(`CREATE TABLE IF NOT EXISTS groups (id TEXT PRIMARY KEY, admin_token TEXT UNIQUE NOT NULL, name TEXT NOT NULL, budget TEXT NOT NULL DEFAULT '')`),
-  db.prepare(`CREATE TABLE IF NOT EXISTS participants (id TEXT PRIMARY KEY, group_id TEXT NOT NULL, token TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+  db.prepare(`CREATE TABLE IF NOT EXISTS participants (id TEXT PRIMARY KEY, group_id TEXT NOT NULL, token TEXT UNIQUE NOT NULL, edit_token TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
     wishlist TEXT NOT NULL DEFAULT '[]', exclusions TEXT NOT NULL DEFAULT '[]', target_id TEXT, created INTEGER NOT NULL)`),
   db.prepare(`CREATE INDEX IF NOT EXISTS participants_group ON participants (group_id)`),
 ]);
@@ -38,7 +38,7 @@ const adminView = async (db, g) => {
   const ps = await members(db, g.id);
   return {
     name: g.name, budget: g.budget, drawn: isDrawn(ps),
-    participants: ps.map(p => ({ id: p.id, name: p.name, giftCount: p.wishlist.length, exclusions: p.exclusions, token: p.token })),
+    participants: ps.map(p => ({ id: p.id, name: p.name, giftCount: p.wishlist.length, exclusions: p.exclusions, token: p.token, editToken: p.edit_token })),
   };
 };
 
@@ -82,7 +82,7 @@ export async function onRequest({ request, env }) {
       const name = clean(body.name, 40);
       if (!name) return json(400, { error: 'Falta el nombre' });
       await db.batch([
-        db.prepare('INSERT INTO participants (id, group_id, token, name, created) VALUES (?, ?, ?, ?, ?)').bind(token(), g.id, token(), name, Date.now()),
+        db.prepare('INSERT INTO participants (id, group_id, token, edit_token, name, created) VALUES (?, ?, ?, ?, ?, ?)').bind(token(), g.id, token(), token(), name, Date.now()),
         resetDraw(db, g.id),
       ]);
       return json(200, await adminView(db, g));
@@ -120,21 +120,30 @@ export async function onRequest({ request, env }) {
     }
   }
 
-  if ((m = url.match(/^\/api\/p\/(\w+)$/))) {
+  // Enlace de consulta (solo lectura): a quién regalo. No permite editar nada.
+  if (method === 'GET' && (m = url.match(/^\/api\/p\/(\w+)$/))) {
     const row = await db.prepare('SELECT * FROM participants WHERE token = ?').bind(m[1]).first();
     if (!row) return json(404, { error: 'Enlace no válido' });
-    let p = parse(row);
-    if (method === 'PUT') {
-      p.wishlist = cleanGifts(body.wishlist);
-      await db.prepare('UPDATE participants SET wishlist = ? WHERE id = ?').bind(JSON.stringify(p.wishlist), p.id).run();
-    }
-    const g = await db.prepare('SELECT * FROM groups WHERE id = ?').bind(p.group_id).first();
+    const g = await db.prepare('SELECT * FROM groups WHERE id = ?').bind(row.group_id).first();
     const drawn = isDrawn(await members(db, g.id));
-    const t = drawn && p.target_id ? await db.prepare('SELECT * FROM participants WHERE id = ?').bind(p.target_id).first() : null;
+    const t = drawn && row.target_id ? await db.prepare('SELECT * FROM participants WHERE id = ?').bind(row.target_id).first() : null;
     return json(200, {
-      name: p.name, group: g.name, budget: g.budget, wishlist: p.wishlist, drawn,
+      name: row.name, group: g.name, budget: g.budget, drawn,
       target: t ? { name: t.name, wishlist: JSON.parse(t.wishlist) } : null,
     });
+  }
+
+  // Enlace de edición: solo la propia lista de deseos. No revela el sorteo.
+  if ((method === 'GET' || method === 'PUT') && (m = url.match(/^\/api\/e\/(\w+)$/))) {
+    const row = await db.prepare('SELECT * FROM participants WHERE edit_token = ?').bind(m[1]).first();
+    if (!row) return json(404, { error: 'Enlace no válido' });
+    let wishlist = JSON.parse(row.wishlist);
+    if (method === 'PUT') {
+      wishlist = cleanGifts(body.wishlist);
+      await db.prepare('UPDATE participants SET wishlist = ? WHERE id = ?').bind(JSON.stringify(wishlist), row.id).run();
+    }
+    const g = await db.prepare('SELECT * FROM groups WHERE id = ?').bind(row.group_id).first();
+    return json(200, { name: row.name, group: g.name, budget: g.budget, wishlist });
   }
   return json(404, { error: 'No encontrado' });
 }

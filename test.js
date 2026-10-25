@@ -20,13 +20,18 @@ for (const n of ['Ana', 'Luis', 'Eva']) g = (await call('POST', `/api/admin/${t}
 const [ana, luis] = g.participants;
 assert.deepStrictEqual(g.participants.map(p => p.name), ['Ana', 'Luis', 'Eva']);
 await call('PUT', `/api/admin/${t}/participants/${ana.id}`, { exclusions: [luis.id] });
-const put = await call('PUT', `/api/p/${ana.token}`, { wishlist: [
+const put = await call('PUT', `/api/e/${ana.editToken}`, { wishlist: [
   { title: 'Libro', url: 'https://x.es/l', details: 'Tapa dura', photo: 'data:image/jpeg;base64,AAAA' },
   { title: 'Malo', url: 'javascript:alert(1)', photo: 'data:text/html;base64,AAAA' }, {}] });
 assert.strictEqual(put.d.wishlist.length, 2);
 assert.strictEqual(put.d.wishlist[0].photo, 'data:image/jpeg;base64,AAAA');
 assert.strictEqual(put.d.wishlist[1].url, ''); assert.strictEqual(put.d.wishlist[1].photo, '');
 assert.strictEqual((await call('POST', `/api/admin/${t}/draw`)).d.drawn, true);
+assert.notStrictEqual(ana.token, ana.editToken);
+assert.strictEqual((await call('PUT', `/api/p/${ana.token}`, { wishlist: [{ title: 'x' }] })).s, 404); // el enlace de consulta no edita
+assert.strictEqual((await call('GET', `/api/e/${ana.token}`)).s, 404);
+assert.strictEqual((await call('GET', `/api/p/${ana.editToken}`)).s, 404);
+assert.strictEqual((await call('GET', `/api/e/${ana.editToken}`)).d.target, undefined); // la edición no revela el sorteo
 const seen = new Set();
 for (const p of g.participants) {
   const d = (await call('GET', `/api/p/${p.token}`)).d;

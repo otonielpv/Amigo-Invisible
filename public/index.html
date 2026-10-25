@@ -81,14 +81,18 @@ async function admin(t) {
       ${g.participants.map(p => `
       <details class="p" data-id="${p.id}" style="margin-top:10px"><summary>${esc(p.name)}</summary>
         <div style="padding:8px 0">
-          <p class="muted">Regalos que ha pedido: ${p.giftCount}. Cada persona los añade desde su enlace personal.</p>
+          <p class="muted">Regalos que ha pedido: ${p.giftCount}. Cada persona los añade desde su enlace de edición.</p>
           ${g.participants.length > 1 ? `<p class="muted" style="margin-bottom:2px">No puede regalar a:</p>
           ${g.participants.filter(o => o.id !== p.id).map(o => `<label class="chk"><input type="checkbox" class="ex" value="${o.id}" ${p.exclusions.includes(o.id) ? 'checked' : ''}> ${esc(o.name)}</label>`).join('')}` : ''}
           <div class="row" style="margin-top:8px"><button class="sec save">Guardar</button><button class="danger del">Eliminar</button></div>
-          <p class="muted" style="margin-bottom:2px">Enlace personal (envíaselo solo a ${esc(p.name)}):</p>
-          <div class="link">${origin}/p/${p.token}</div>
-          <div class="row" style="margin-top:6px"><button class="sec copy" data-url="${origin}/p/${p.token}">Copiar</button>
-          <a href="https://wa.me/?text=${encodeURIComponent(`Hola ${p.name}, mira a quién le haces el regalo en el amigo invisible «${g.name}»: ${origin}/p/${p.token}`)}" target="_blank" rel="noopener"><button class="sec" type="button">WhatsApp</button></a></div>
+          ${[
+            ['✏️ Enlace para editar sus regalos', '/e/' + p.editToken, `Hola ${p.name}, apunta aquí los regalos que te gustaría recibir en el amigo invisible «${g.name}» (puedes cambiarlos cuando quieras): `],
+            ['🎁 Enlace para ver a quién le regala', '/p/' + p.token, `Hola ${p.name}, mira a quién le haces el regalo en el amigo invisible «${g.name}»: `],
+          ].map(([label, path, msg]) => `
+          <p class="muted" style="margin:10px 0 2px">${label} (solo para ${esc(p.name)}):</p>
+          <div class="link">${origin}${path}</div>
+          <div class="row" style="margin-top:6px"><button class="sec copy" data-url="${origin}${path}">Copiar</button>
+          <a href="https://wa.me/?text=${encodeURIComponent(msg + origin + path)}" target="_blank" rel="noopener"><button class="sec" type="button">WhatsApp</button></a></div>`).join('')}
         </div></details>`).join('')}
     </div>
     <div class="card"><h3>Sorteo</h3>
@@ -116,7 +120,7 @@ async function admin(t) {
         if (!confirm('¿Eliminar a este participante? Habrá que repetir el sorteo.')) return g;
         return api('DELETE', url);
       });
-      d.querySelector('.copy').onclick = e => { navigator.clipboard.writeText(e.target.dataset.url); e.target.textContent = '¡Copiado!'; };
+      d.querySelectorAll('.copy').forEach(c => c.onclick = e => { navigator.clipboard.writeText(e.target.dataset.url); e.target.textContent = '¡Copiado!'; });
     });
   };
   render();
@@ -146,26 +150,31 @@ async function person(t) {
   const url = '/api/p/' + t;
   let d;
   try { d = await api('GET', url); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
-  let items = d.wishlist.map(i => ({ ...i }));
-  $app.innerHTML = `
-    <div class="card" id="top"></div>
-    <div class="card"><h3>Mi lista de deseos</h3><p class="muted">Añade regalos con enlace, foto y detalles (talla, color…). Puedes volver a este enlace cuando quieras para añadir, cambiar o quitar regalos; quien te toque verá siempre la versión más reciente.</p>
-      <div id="items"></div>
-      <div class="row"><button class="sec" id="add">+ Añadir regalo</button><button id="save">Guardar</button><span id="ok" class="muted"></span></div></div>`;
-  const top = document.getElementById('top');
-  const showTop = () => {
-    top.innerHTML = `<h2>Hola, ${esc(d.name)} 👋</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
+  const show = () => {
+    $app.innerHTML = `<div class="card"><h2>Hola, ${esc(d.name)} 👋</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
       ${d.target ? `<p>Le haces el regalo a:</p><div class="big">${esc(d.target.name)}</div>
         <p><b>Lo que le gustaría:</b></p>${d.target.wishlist.length ? d.target.wishlist.map(giftHtml).join('') : '<p class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</p>'}
         <p class="muted">Su lista puede cambiar: se actualiza cada vez que abres esta página.</p>`
-        : '<p>El sorteo todavía no se ha hecho. Vuelve a abrir este enlace más tarde.</p>'}`;
+        : '<p>El sorteo todavía no se ha hecho. Vuelve a abrir este enlace más tarde.</p>'}</div>`;
   };
-  showTop();
-  // Al volver a la pestaña, recarga solo la parte del amigo invisible (no toca lo que estás editando)
+  show();
+  // Al volver a la pestaña, se actualiza la lista de la persona a la que regalas
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState !== 'visible') return;
-    try { const f = await api('GET', url); d = { ...d, drawn: f.drawn, target: f.target, budget: f.budget }; showTop(); } catch {}
+    try { d = await api('GET', url); show(); } catch {}
   });
+}
+
+async function editor(t) {
+  const url = '/api/e/' + t;
+  let d;
+  try { d = await api('GET', url); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  let items = d.wishlist.map(i => ({ ...i }));
+  $app.innerHTML = `
+    <div class="card"><h2>Hola, ${esc(d.name)} 👋</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
+      <h3>Mi lista de deseos</h3><p class="muted">Añade regalos con enlace, foto y detalles (talla, color…). Puedes volver a este enlace cuando quieras para añadir, cambiar o quitar regalos; quien te toque verá siempre la versión más reciente. No lo compartas: con él se puede editar tu lista.</p>
+      <div id="items"></div>
+      <div class="row"><button class="sec" id="add">+ Añadir regalo</button><button id="save">Guardar</button><span id="ok" class="muted"></span></div></div>`;
   const box = document.getElementById('items');
   const draw = () => {
     box.innerHTML = items.map((i, n) => `<div class="edit" data-n="${n}">
@@ -194,8 +203,8 @@ async function person(t) {
   });
 }
 
-const m = location.pathname.match(/^\/(a|p)\/(\w+)/);
-if (!m) home(); else if (m[1] === 'a') admin(m[2]); else person(m[2]);
+const m = location.pathname.match(/^\/(a|p|e)\/(\w+)/);
+if (!m) home(); else if (m[1] === 'a') admin(m[2]); else if (m[1] === 'e') editor(m[2]); else person(m[2]);
 </script>
 </body>
 </html>
