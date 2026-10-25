@@ -3,6 +3,7 @@
   "main": "src/worker.js",
   "workers_dev": true,
   "compatibility_date": "2025-01-01",
+  "observability": { "logs": { "enabled": true, "invocation_logs": true } },
   "assets": {
     "directory": "public",
     "not_found_handling": "single-page-application",
