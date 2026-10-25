@@ -1,6 +1,6 @@
 // Uso: `npm run dev` en otra terminal y luego `npm test` (BASE_URL opcional)
 import assert from 'node:assert';
-import { draw } from './functions/_draw.js';
+import { draw } from './src/draw.js';
 
 for (let n = 0; n < 200; n++) {
   const ps = ['a', 'b', 'c', 'd', 'e'].map(id => ({ id, exclusions: [] }));

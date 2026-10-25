@@ -13,13 +13,11 @@ Web sencilla para organizar el amigo invisible de varias familias por separado. 
     npm run dev      # http://localhost:8788 (D1 local simulada)
     npm test         # con el servidor anterior en marcha
 
-## Despliegue gratuito en Cloudflare
+## Despliegue en Cloudflare (Workers con assets + D1, gratis)
 
-1. En el panel de Cloudflare: **Storage & Databases → D1 → Create database** (nombre: `amigo-invisible`). Las tablas se crean solas.
-2. **Workers & Pages → Create → Pages → Connect to Git**, elige este repositorio.
-   - Framework preset: *None*
-   - Build command: *(vacío)*
-   - Build output directory: `public`
-3. Tras el primer despliegue, en el proyecto: **Settings → Bindings → Add → D1 database**, nombre de variable `DB`, elige `amigo-invisible`. Guarda y vuelve a desplegar (**Deployments → Retry deployment**).
+El proyecto se despliega con `npx wrangler deploy` usando `wrangler.jsonc`:
 
-Tendrás una dirección `https://<proyecto>.pages.dev`.
+- `public/` se sirve como web estática (las rutas `/a/…`, `/e/…` y `/p/…` caen en `index.html`).
+- `/api/*` lo atiende `src/worker.js`, que guarda los datos en D1 (binding `DB`). Las tablas se crean solas.
+- Si usas otra base de datos D1, cambia `database_id` en `wrangler.jsonc` (se ve en el panel: Storage & Databases → D1).
+- Conecta el repositorio en Workers & Pages → Create → Import a repository. Comando de build: vacío. Comando de deploy: `npx wrangler deploy`.

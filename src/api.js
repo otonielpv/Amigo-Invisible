@@ -1,4 +1,4 @@
-import { draw } from '../_draw.js';
+import { draw } from './draw.js';
 
 const MAX_GIFTS = 15, MAX_PHOTO = 250000, MAX_BODY = 5e6;
 const token = () => [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -42,7 +42,7 @@ const adminView = async (db, g) => {
   };
 };
 
-export async function onRequest({ request, env }) {
+export async function handleApi(request, env) {
   const db = env.DB;
   if (!db) return json(500, { error: 'Falta la base de datos (binding DB)' });
   await init(db);
