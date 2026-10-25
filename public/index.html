@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amigo invisible</title>
+<style>
+  :root { --bg:#f6f3ee; --card:#fff; --ink:#222; --muted:#777; --accent:#c0392b; --line:#e5dfd5; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:720px; margin:0 auto; padding:16px; }
+  h1 { color:var(--accent); } h1 a { color:inherit; text-decoration:none; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0; }
+  input, textarea, button { font:inherit; padding:8px 10px; border-radius:8px; border:1px solid var(--line); }
+  textarea, input[type=text] { width:100%; }
+  button { background:var(--accent); color:#fff; border:0; cursor:pointer; }
+  button.sec { background:#eee; color:var(--ink); } button.danger { background:#888; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; } .row > input { flex:1; min-width:120px; }
+  .muted { color:var(--muted); font-size:.9em; } .err { color:var(--accent); }
+  .big { font-size:2em; font-weight:bold; text-align:center; color:var(--accent); margin:8px 0; }
+  details summary { cursor:pointer; font-weight:600; }
+  label.chk { display:inline-block; margin:2px 10px 2px 0; }
+  .link { word-break:break-all; font-size:.85em; background:#f3efe8; padding:6px; border-radius:6px; }
+</style>
+</head>
+<body>
+<main><h1><a href="/">🎁 Amigo invisible</a></h1><div id="app"></div></main>
+<script>
+const $app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api = async (method, url, body) => {
+  const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Error');
+  return d;
+};
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem('groups') || '[]'); } catch { return []; } },
+  add(g) { try { localStorage.setItem('groups', JSON.stringify([...this.get().filter(x => x.t !== g.t), g])); } catch {} },
+  remove(t) { try { localStorage.setItem('groups', JSON.stringify(this.get().filter(x => x.t !== t))); } catch {} },
+};
+const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { alert(e.message); } };
+
+// ---------- Inicio ----------
+function home() {
+  const groups = store.get();
+  $app.innerHTML = `
+    <div class="card"><h2>Crear un grupo</h2>
+      <p class="muted">Un grupo por familia (por ejemplo «Mi familia» y «Familia de mi mujer»).</p>
+      <div class="row"><input id="name" type="text" placeholder="Nombre de la familia"><input id="budget" type="text" placeholder="Presupuesto (ej. 20 €)" style="max-width:160px">
+      <button id="go">Crear</button></div></div>
+    ${groups.length ? `<div class="card"><h2>Tus grupos</h2>${groups.map(g => `<p><a href="/a/${g.t}">${esc(g.name)}</a></p>`).join('')}</div>` : ''}`;
+  document.getElementById('go').onclick = guard(async () => {
+    const name = document.getElementById('name').value;
+    const { adminToken } = await api('POST', '/api/groups', { name, budget: document.getElementById('budget').value });
+    store.add({ t: adminToken, name });
+    location.href = '/a/' + adminToken;
+  });
+}
+
+// ---------- Administración ----------
+async function admin(t) {
+  const base = '/api/admin/' + t;
+  let g;
+  try { g = await api('GET', base); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  store.add({ t, name: g.name });
+  const origin = location.origin;
+  const render = () => {
+    $app.innerHTML = `
+    <div class="card"><h2>${esc(g.name)}</h2>
+      <div class="row"><input id="gname" type="text" value="${esc(g.name)}"><input id="gbudget" type="text" value="${esc(g.budget)}" placeholder="Presupuesto" style="max-width:140px"><button class="sec" id="gsave">Guardar</button></div>
+      <p class="muted">Guarda esta página en favoritos: es tu enlace de administrador. El sorteo no se muestra aquí, así que tú también puedes participar sin saber quién le toca a quién.</p></div>
+    <div class="card"><h3>Participantes (${g.participants.length})</h3>
+      <div class="row"><input id="pname" type="text" placeholder="Nombre"><button id="padd">Añadir</button></div>
+      ${g.participants.map(p => `
+      <details class="p" data-id="${p.id}" style="margin-top:10px"><summary>${esc(p.name)}</summary>
+        <div style="padding:8px 0">
+          <label class="muted">Qué le gustaría recibir</label>
+          <textarea class="wish" rows="3">${esc(p.wishlist)}</textarea>
+          ${g.participants.length > 1 ? `<p class="muted" style="margin-bottom:2px">No puede regalar a:</p>
+          ${g.participants.filter(o => o.id !== p.id).map(o => `<label class="chk"><input type="checkbox" class="ex" value="${o.id}" ${p.exclusions.includes(o.id) ? 'checked' : ''}> ${esc(o.name)}</label>`).join('')}` : ''}
+          <div class="row" style="margin-top:8px"><button class="sec save">Guardar</button><button class="danger del">Eliminar</button></div>
+          <p class="muted" style="margin-bottom:2px">Enlace personal (envíaselo solo a ${esc(p.name)}):</p>
+          <div class="link">${origin}/p/${p.token}</div>
+          <div class="row" style="margin-top:6px"><button class="sec copy" data-url="${origin}/p/${p.token}">Copiar</button>
+          <a href="https://wa.me/?text=${encodeURIComponent(`Hola ${p.name}, mira a quién le haces el regalo en el amigo invisible «${g.name}»: ${origin}/p/${p.token}`)}" target="_blank" rel="noopener"><button class="sec" type="button">WhatsApp</button></a></div>
+        </div></details>`).join('')}
+    </div>
+    <div class="card"><h3>Sorteo</h3>
+      <p>${g.drawn ? '✅ Sorteo hecho. Los enlaces ya muestran a quién regala cada uno.' : 'Aún sin sortear.'}</p>
+      <button id="draw">${g.drawn ? 'Repetir sorteo' : 'Hacer sorteo'}</button>
+      ${g.drawn ? '<p class="muted">Repetir el sorteo cambia todos los resultados. Si añades o quitas gente o cambias exclusiones, hay que sortear de nuevo.</p>' : ''}</div>
+    <div class="card"><button class="danger" id="delg">Borrar este grupo</button></div>`;
+
+    const update = fn => guard(async () => { g = await fn(); const open = [...document.querySelectorAll('details[open]')].map(d => d.dataset.id); render(); open.forEach(i => { const d = document.querySelector(`details[data-id="${i}"]`); if (d) d.open = true; }); });
+    document.getElementById('gsave').onclick = update(() => api('PUT', base, { name: gname.value, budget: gbudget.value }));
+    document.getElementById('padd').onclick = update(() => api('POST', base + '/participants', { name: pname.value }));
+    pname.onkeydown = e => { if (e.key === 'Enter') padd.click(); };
+    document.getElementById('draw').onclick = update(async () => {
+      if (g.drawn && !confirm('¿Repetir el sorteo? Cambiarán todos los resultados.')) return g;
+      return api('POST', base + '/draw');
+    });
+    document.getElementById('delg').onclick = guard(async () => {
+      if (!confirm('¿Borrar el grupo y todos sus datos?')) return;
+      await api('DELETE', base); store.remove(t); location.href = '/';
+    });
+    document.querySelectorAll('details.p').forEach(d => {
+      const id = d.dataset.id, url = base + '/participants/' + id;
+      d.querySelector('.save').onclick = update(() => api('PUT', url, { wishlist: d.querySelector('.wish').value, exclusions: [...d.querySelectorAll('.ex:checked')].map(c => c.value) }));
+      d.querySelector('.del').onclick = update(async () => {
+        if (!confirm('¿Eliminar a este participante? Habrá que repetir el sorteo.')) return g;
+        return api('DELETE', url);
+      });
+      d.querySelector('.copy').onclick = e => { navigator.clipboard.writeText(e.target.dataset.url); e.target.textContent = '¡Copiado!'; };
+    });
+  };
+  render();
+}
+
+// ---------- Participante ----------
+async function person(t) {
+  const url = '/api/p/' + t;
+  let d;
+  try { d = await api('GET', url); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  $app.innerHTML = `
+    <div class="card"><h2>Hola, ${esc(d.name)} 👋</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
+      ${d.target ? `<p>Le haces el regalo a:</p><div class="big">${esc(d.target.name)}</div>
+        <p><b>Lo que le gustaría:</b></p><p>${d.target.wishlist ? esc(d.target.wishlist).replace(/\n/g, '<br>') : '<span class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</span>'}</p>`
+        : '<p>El sorteo todavía no se ha hecho. Vuelve a abrir este enlace más tarde.</p>'}</div>
+    <div class="card"><h3>Mi lista de deseos</h3><p class="muted">Ayuda a quien te toque a acertar.</p>
+      <textarea id="wish" rows="4" placeholder="Libros, una bufanda, chocolate…">${esc(d.wishlist)}</textarea>
+      <div class="row" style="margin-top:8px"><button id="save">Guardar</button><span id="ok" class="muted"></span></div></div>`;
+  document.getElementById('save').onclick = guard(async () => {
+    await api('PUT', url, { wishlist: document.getElementById('wish').value });
+    document.getElementById('ok').textContent = '✓ Guardado';
+  });
+}
+
+const m = location.pathname.match(/^\/(a|p)\/(\w+)/);
+if (!m) home(); else if (m[1] === 'a') admin(m[2]); else person(m[2]);
+</script>
+</body>
+</html>

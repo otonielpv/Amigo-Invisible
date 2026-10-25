@@ -1,0 +1,8 @@
+{
+  "name": "amigo-invisible",
+  "version": "1.0.0",
+  "description": "Amigo invisible para familias, sin dependencias",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test.js" },
+  "engines": { "node": ">=18" }
+}
