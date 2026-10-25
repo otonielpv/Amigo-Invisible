@@ -101,10 +101,14 @@
 <script>
 const $app = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pw = {
+  get() { try { return sessionStorage.getItem('pw') || ''; } catch { return ''; } },
+  set(v) { try { sessionStorage.setItem('pw', v); } catch {} },
+};
 const api = async (method, url, body) => {
-  const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined });
+  const r = await fetch(url, { method, headers: {'Content-Type':'application/json', 'x-password': pw.get()}, body: body ? JSON.stringify(body) : undefined });
   const d = await r.json();
-  if (!r.ok) throw new Error(d.error || 'Error');
+  if (!r.ok) throw Object.assign(new Error(d.error || 'Error'), { needPassword: !!d.needPassword });
   return d;
 };
 const store = {
@@ -121,13 +125,15 @@ function home() {
     <div class="card"><h2>Crear un grupo</h2>
       <p class="muted">Un grupo por familia (por ejemplo «Mi familia» y «Familia de mi mujer»).</p>
       <div class="row"><input id="name" type="text" placeholder="Nombre de la familia"><input id="budget" type="text" placeholder="Presupuesto (ej. 20 €)"></div>
-      <div class="row" id="pwrow" hidden><input id="pw" type="password" placeholder="Contraseña para crear grupos" autocomplete="current-password"></div>
+      <div class="row" id="pwrow" hidden><input id="pw" type="password" placeholder="Contraseña" autocomplete="current-password"></div>
       <div class="row"><button id="go">Crear</button></div></div>
     ${groups.length ? `<div class="card"><h2>Tus grupos</h2>${groups.map(g => `<p><a href="/a/${g.t}">${esc(g.name)}</a></p>`).join('')}</div>` : ''}</div>`;
   api('GET', '/api/config').then(c => { if (c.passwordRequired) document.getElementById('pwrow').hidden = false; }).catch(() => {});
   document.getElementById('go').onclick = guard(async () => {
     const name = document.getElementById('name').value;
-    const { adminToken } = await api('POST', '/api/groups', { name, budget: document.getElementById('budget').value, password: document.getElementById('pw').value });
+    const pass = document.getElementById('pw').value;
+    const { adminToken } = await api('POST', '/api/groups', { name, budget: document.getElementById('budget').value, password: pass });
+    if (pass) pw.set(pass);
     store.add({ t: adminToken, name });
     location.href = '/a/' + adminToken;
   });
@@ -137,7 +143,21 @@ function home() {
 async function admin(t) {
   const base = '/api/admin/' + t;
   let g;
-  try { g = await api('GET', base); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  for (;;) {
+    try { g = await api('GET', base); break; } catch (e) {
+      if (!e.needPassword) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+      // Pide la contraseña y reintenta
+      await new Promise(done => {
+        $app.innerHTML = `<div class="card"><h2>Administración</h2><p class="muted">Esta página está protegida con contraseña.</p>
+          <div class="row"><input id="pw" type="password" placeholder="Contraseña" autocomplete="current-password"></div>
+          <div class="row"><button id="ok">Entrar</button></div>${pw.get() ? '<p class="err">Contraseña incorrecta</p>' : ''}</div>`;
+        const go = () => { pw.set(document.getElementById('pw').value); done(); };
+        document.getElementById('ok').onclick = go;
+        document.getElementById('pw').onkeydown = ev => { if (ev.key === 'Enter') go(); };
+        document.getElementById('pw').focus();
+      });
+    }
+  }
   store.add({ t, name: g.name });
   const origin = location.origin;
   // Exclusiones pendientes de guardar (se conservan aunque la página se redibuje por otra acción)

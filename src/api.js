@@ -55,17 +55,21 @@ export async function handleApi(request, env) {
   }
   let m;
 
-  // Contraseña opcional (secreto CREATE_PASSWORD) solo para crear grupos; los enlaces de las familias no la necesitan.
-  if (method === 'GET' && url === '/api/config') return json(200, { passwordRequired: !!env.CREATE_PASSWORD });
+  // Contraseña opcional (secreto ADMIN_PASSWORD): protege crear grupos y toda la administración.
+  // Los enlaces de los participantes (/e y /p) no la necesitan.
+  const passwordOk = given => !env.ADMIN_PASSWORD || String(given ?? '') === env.ADMIN_PASSWORD;
+  if (method === 'GET' && url === '/api/config') return json(200, { passwordRequired: !!env.ADMIN_PASSWORD });
 
   if (method === 'POST' && url === '/api/groups') {
-    if (env.CREATE_PASSWORD && String(body.password ?? '') !== env.CREATE_PASSWORD) return json(403, { error: 'Contraseña incorrecta' });
+    if (!passwordOk(body.password)) return json(403, { error: 'Contraseña incorrecta', needPassword: true });
     const name = clean(body.name, 60);
     if (!name) return json(400, { error: 'Falta el nombre' });
     const adminToken = token();
     await db.prepare('INSERT INTO groups (id, admin_token, name, budget) VALUES (?, ?, ?, ?)').bind(token(), adminToken, name, clean(body.budget, 20)).run();
     return json(200, { adminToken });
   }
+
+  if (url.startsWith('/api/admin/') && !passwordOk(request.headers.get('x-password'))) return json(403, { error: 'Contraseña incorrecta', needPassword: true });
 
   if ((m = url.match(/^\/api\/admin\/(\w+)(?:\/(draw|participants|exclusions)(?:\/(\w+))?)?$/))) {
     const g = await db.prepare('SELECT * FROM groups WHERE admin_token = ?').bind(m[1]).first();
