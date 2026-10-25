@@ -21,7 +21,13 @@ server.listen(0, async () => {
   let g;
   for (const n of ['Ana', 'Luis', 'Eva']) g = (await call('POST', `/api/admin/${t}/participants`, { name: n })).d;
   const [ana, luis] = g.participants;
-  await call('PUT', `/api/admin/${t}/participants/${ana.id}`, { wishlist: 'Libro', exclusions: [luis.id] });
+  await call('PUT', `/api/admin/${t}/participants/${ana.id}`, { exclusions: [luis.id] });
+  const put = await call('PUT', `/api/p/${ana.token}`, { wishlist: [
+    { title: 'Libro', url: 'https://x.es/l', details: 'Tapa dura', photo: 'data:image/jpeg;base64,AAAA' },
+    { title: 'Malo', url: 'javascript:alert(1)', photo: 'data:text/html;base64,AAAA' }, {}] });
+  assert.strictEqual(put.d.wishlist.length, 2);
+  assert.strictEqual(put.d.wishlist[0].photo, 'data:image/jpeg;base64,AAAA');
+  assert.strictEqual(put.d.wishlist[1].url, ''); assert.strictEqual(put.d.wishlist[1].photo, '');
   assert.strictEqual((await call('POST', `/api/admin/${t}/draw`)).d.drawn, true);
   const seen = new Set();
   for (const p of g.participants) {

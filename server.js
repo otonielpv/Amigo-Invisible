@@ -43,9 +43,27 @@ function draw(participants) {
 }
 
 const clean = (s, max) => String(s ?? '').trim().slice(0, max);
+const MAX_GIFTS = 15, MAX_PHOTO = 250000;
+// Regalos: [{ id, title, url, details, photo }]; la foto es un JPEG reducido en el navegador (data URL).
+function cleanGifts(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, MAX_GIFTS).map(i => {
+    const url = clean(i && i.url, 500);
+    const photo = String((i && i.photo) || '');
+    return {
+      id: token(),
+      title: clean(i && i.title, 100),
+      url: /^https?:\/\//i.test(url) ? url : '',
+      details: clean(i && i.details, 500),
+      photo: /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo) && photo.length <= MAX_PHOTO ? photo : '',
+    };
+  }).filter(i => i.title || i.url || i.details || i.photo);
+}
+// Datos antiguos: la lista era un texto libre.
+const gifts = p => Array.isArray(p.wishlist) ? p.wishlist : (p.wishlist ? [{ id: token(), title: p.wishlist, url: '', details: '', photo: '' }] : []);
 const adminView = g => ({
   name: g.name, budget: g.budget, drawn: !!g.assignments,
-  participants: g.participants.map(({ id, name, wishlist, exclusions, token }) => ({ id, name, wishlist, exclusions, token })),
+  participants: g.participants.map(p => ({ id: p.id, name: p.name, giftCount: gifts(p).length, exclusions: p.exclusions, token: p.token })),
 });
 
 function route(method, url, body) {
@@ -72,7 +90,7 @@ function route(method, url, body) {
     if (sub === 'participants' && !pid && method === 'POST') {
       const name = clean(body.name, 40);
       if (!name) return [400, { error: 'Falta el nombre' }];
-      g.participants.push({ id: token(), token: token(), name, wishlist: '', exclusions: [] });
+      g.participants.push({ id: token(), token: token(), name, wishlist: [], exclusions: [] });
       g.assignments = null; save(); return [200, adminView(g)];
     }
     if (sub === 'participants' && pid) {
@@ -84,7 +102,6 @@ function route(method, url, body) {
         g.assignments = null;
       } else if (method === 'PUT') {
         if ('name' in body && clean(body.name, 40)) p.name = clean(body.name, 40);
-        if ('wishlist' in body) p.wishlist = clean(body.wishlist, 1000);
         if ('exclusions' in body) {
           const valid = new Set(g.participants.map(x => x.id));
           p.exclusions = [...new Set(body.exclusions)].filter(e => valid.has(e) && e !== pid);
@@ -104,11 +121,11 @@ function route(method, url, body) {
     const f = findByPart(m[1]);
     if (!f) return [404, { error: 'Enlace no válido' }];
     const { g, p } = f;
-    if (method === 'PUT') { p.wishlist = clean(body.wishlist, 1000); save(); }
+    if (method === 'PUT') { p.wishlist = cleanGifts(body.wishlist); save(); }
     const t = g.assignments && g.participants.find(x => x.id === g.assignments[p.id]);
     return [200, {
-      name: p.name, group: g.name, budget: g.budget, wishlist: p.wishlist, drawn: !!g.assignments,
-      target: t ? { name: t.name, wishlist: t.wishlist } : null,
+      name: p.name, group: g.name, budget: g.budget, wishlist: gifts(p), drawn: !!g.assignments,
+      target: t ? { name: t.name, wishlist: gifts(t) } : null,
     }];
   }
   return [404, { error: 'No encontrado' }];
@@ -119,7 +136,7 @@ const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   if (url.startsWith('/api/')) {
     let raw = '';
-    req.on('data', c => { raw += c; if (raw.length > 1e5) req.destroy(); });
+    req.on('data', c => { raw += c; if (raw.length > 5e6) req.destroy(); });
     req.on('end', () => {
       let body = {};
       try { body = raw ? JSON.parse(raw) : {}; } catch (_) { res.writeHead(400); return res.end('{}'); }

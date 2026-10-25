@@ -20,6 +20,12 @@
   .big { font-size:2em; font-weight:bold; text-align:center; color:var(--accent); margin:8px 0; }
   details summary { cursor:pointer; font-weight:600; }
   label.chk { display:inline-block; margin:2px 10px 2px 0; }
+  .gift { display:flex; gap:12px; border-top:1px solid var(--line); padding:10px 0; }
+  .gift img { width:96px; height:96px; object-fit:cover; border-radius:8px; flex:none; cursor:zoom-in; }
+  .gift .info { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .edit { border:1px solid var(--line); border-radius:10px; padding:10px; margin:10px 0; }
+  .edit input[type=text] { margin-bottom:6px; }
+  .edit img { max-width:120px; max-height:120px; border-radius:8px; display:block; margin:6px 0; }
   .link { word-break:break-all; font-size:.85em; background:#f3efe8; padding:6px; border-radius:6px; }
 </style>
 </head>
@@ -75,8 +81,7 @@ async function admin(t) {
       ${g.participants.map(p => `
       <details class="p" data-id="${p.id}" style="margin-top:10px"><summary>${esc(p.name)}</summary>
         <div style="padding:8px 0">
-          <label class="muted">Qué le gustaría recibir</label>
-          <textarea class="wish" rows="3">${esc(p.wishlist)}</textarea>
+          <p class="muted">Regalos que ha pedido: ${p.giftCount}. Cada persona los añade desde su enlace personal.</p>
           ${g.participants.length > 1 ? `<p class="muted" style="margin-bottom:2px">No puede regalar a:</p>
           ${g.participants.filter(o => o.id !== p.id).map(o => `<label class="chk"><input type="checkbox" class="ex" value="${o.id}" ${p.exclusions.includes(o.id) ? 'checked' : ''}> ${esc(o.name)}</label>`).join('')}` : ''}
           <div class="row" style="margin-top:8px"><button class="sec save">Guardar</button><button class="danger del">Eliminar</button></div>
@@ -106,7 +111,7 @@ async function admin(t) {
     });
     document.querySelectorAll('details.p').forEach(d => {
       const id = d.dataset.id, url = base + '/participants/' + id;
-      d.querySelector('.save').onclick = update(() => api('PUT', url, { wishlist: d.querySelector('.wish').value, exclusions: [...d.querySelectorAll('.ex:checked')].map(c => c.value) }));
+      d.querySelector('.save').onclick = update(() => api('PUT', url, { exclusions: [...d.querySelectorAll('.ex:checked')].map(c => c.value) }));
       d.querySelector('.del').onclick = update(async () => {
         if (!confirm('¿Eliminar a este participante? Habrá que repetir el sorteo.')) return g;
         return api('DELETE', url);
@@ -118,20 +123,62 @@ async function admin(t) {
 }
 
 // ---------- Participante ----------
+const safeUrl = u => /^https?:\/\//i.test(u) ? u : '';
+const giftHtml = i => `<div class="gift">${i.photo ? `<img src="${i.photo}" alt="" onclick="window.open(this.src)">` : ''}
+  <div class="info"><b>${esc(i.title || 'Regalo')}</b>
+  ${safeUrl(i.url) ? `<br><a href="${esc(i.url)}" target="_blank" rel="noopener noreferrer">🔗 Ver enlace</a>` : ''}
+  ${i.details ? `<br>${esc(i.details).replace(/\n/g, '<br>')}` : ''}</div></div>`;
+
+// Reduce la foto a un JPEG pequeño para que no pese
+const shrink = file => new Promise((ok, ko) => {
+  const img = new Image(), u = URL.createObjectURL(file);
+  img.onload = () => {
+    const k = Math.min(1, 600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(u); ok(c.toDataURL('image/jpeg', 0.75));
+  };
+  img.onerror = () => ko(new Error('No se pudo leer la imagen'));
+  img.src = u;
+});
+
 async function person(t) {
   const url = '/api/p/' + t;
   let d;
   try { d = await api('GET', url); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  let items = d.wishlist.map(i => ({ ...i }));
   $app.innerHTML = `
     <div class="card"><h2>Hola, ${esc(d.name)} 👋</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
       ${d.target ? `<p>Le haces el regalo a:</p><div class="big">${esc(d.target.name)}</div>
-        <p><b>Lo que le gustaría:</b></p><p>${d.target.wishlist ? esc(d.target.wishlist).replace(/\n/g, '<br>') : '<span class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</span>'}</p>`
+        <p><b>Lo que le gustaría:</b></p>${d.target.wishlist.length ? d.target.wishlist.map(giftHtml).join('') : '<p class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</p>'}`
         : '<p>El sorteo todavía no se ha hecho. Vuelve a abrir este enlace más tarde.</p>'}</div>
-    <div class="card"><h3>Mi lista de deseos</h3><p class="muted">Ayuda a quien te toque a acertar.</p>
-      <textarea id="wish" rows="4" placeholder="Libros, una bufanda, chocolate…">${esc(d.wishlist)}</textarea>
-      <div class="row" style="margin-top:8px"><button id="save">Guardar</button><span id="ok" class="muted"></span></div></div>`;
+    <div class="card"><h3>Mi lista de deseos</h3><p class="muted">Añade regalos con enlace, foto y detalles (talla, color…) para que sea fácil acertar.</p>
+      <div id="items"></div>
+      <div class="row"><button class="sec" id="add">+ Añadir regalo</button><button id="save">Guardar</button><span id="ok" class="muted"></span></div></div>`;
+  const box = document.getElementById('items');
+  const draw = () => {
+    box.innerHTML = items.map((i, n) => `<div class="edit" data-n="${n}">
+      <input type="text" class="t" placeholder="¿Qué quieres? (ej. Zapatillas running)" value="${esc(i.title)}">
+      <input type="text" class="u" placeholder="Enlace de la tienda (https://…)" value="${esc(i.url)}">
+      <textarea class="x" rows="2" placeholder="Detalles: talla, color, modelo…">${esc(i.details)}</textarea>
+      ${i.photo ? `<img src="${i.photo}" alt="">` : ''}
+      <div class="row"><label class="muted">📷 <input type="file" class="f" accept="image/*" style="max-width:220px"></label>
+      ${i.photo ? '<button class="sec rp">Quitar foto</button>' : ''}<button class="danger rm">Eliminar</button></div></div>`).join('');
+    box.querySelectorAll('.edit').forEach(e => {
+      const i = items[e.dataset.n];
+      e.querySelector('.t').oninput = ev => i.title = ev.target.value;
+      e.querySelector('.u').oninput = ev => i.url = ev.target.value;
+      e.querySelector('.x').oninput = ev => i.details = ev.target.value;
+      e.querySelector('.rm').onclick = () => { items.splice(e.dataset.n, 1); draw(); };
+      const rp = e.querySelector('.rp'); if (rp) rp.onclick = () => { i.photo = ''; draw(); };
+      e.querySelector('.f').onchange = guard(async ev => { if (ev.target.files[0]) { i.photo = await shrink(ev.target.files[0]); draw(); } });
+    });
+  };
+  draw();
+  document.getElementById('add').onclick = () => { if (items.length >= 15) return alert('Máximo 15 regalos'); items.push({ title: '', url: '', details: '', photo: '' }); draw(); };
   document.getElementById('save').onclick = guard(async () => {
-    await api('PUT', url, { wishlist: document.getElementById('wish').value });
+    const r = await api('PUT', url, { wishlist: items });
+    items = r.wishlist.map(i => ({ ...i })); draw();
     document.getElementById('ok').textContent = '✓ Guardado';
   });
 }
