@@ -10,8 +10,8 @@
   * { box-sizing:border-box; }
   html { -webkit-text-size-adjust:100%; }
   body { margin:0; background:var(--paper); color:var(--ink); font:18px/1.55 "Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif; }
-  main { max-width:1080px; margin:0 auto; padding:20px var(--gap) 56px; }
-  main.narrow { max-width:940px; }
+  main { max-width:1440px; margin:0 auto; padding:20px var(--gap) 56px; }
+  main.narrow { max-width:1100px; }
   a { color:var(--seal); text-underline-offset:3px; }
   h1 { margin:0 0 22px; padding-bottom:12px; border-bottom:4px double var(--ink); font-size:clamp(1.9rem,9vw,2.7rem); line-height:1.05; font-weight:700; letter-spacing:-.01em; }
   h1 a { color:inherit; text-decoration:none; } h1 em { color:var(--seal); }
@@ -19,7 +19,6 @@
   h3 { margin:0 0 4px; font-size:1.2rem; }
   .card { padding:20px 0 24px; border-top:1px solid var(--ink); }
   .card:first-of-type { border-top:0; padding-top:4px; }
-  .exgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); column-gap:18px; }
   p { margin:.5em 0; }
   .muted { color:var(--muted); font-size:.92rem; line-height:1.45; }
   .lbl { margin:14px 0 0; font:600 .72rem/1.2 system-ui,sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
@@ -65,21 +64,34 @@
   .edit textarea { margin-top:8px; background:var(--paper); }
   .edit img { display:block; width:120px; height:120px; object-fit:cover; margin:12px 0 0; border:1.5px solid var(--ink); }
   .filebtn input { display:none; }
+  .mutual { margin:8px 0 14px; font-size:.95rem; border-bottom:0; min-height:40px; }
+  .matrix { overflow-x:auto; margin:0 -2px; padding-bottom:6px; }
+  .matrix table { border-collapse:collapse; }
+  .matrix th, .matrix td { padding:0; border:1px solid #b9b19a; }
+  .matrix .rowh { position:sticky; left:0; z-index:1; background:var(--paper); padding:0 12px 0 4px; text-align:left; font-weight:600; font-size:.95rem; white-space:nowrap; border-right:1.5px solid var(--ink); }
+  .matrix .corner { border:0; border-bottom:1.5px solid var(--ink); position:sticky; left:0; background:var(--paper); }
+  .matrix .col { height:112px; width:42px; min-width:42px; vertical-align:bottom; border-bottom:1.5px solid var(--ink); font-weight:600; font-size:.88rem; }
+  .matrix .col div { writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; max-height:106px; overflow:hidden; text-overflow:ellipsis; margin:0 auto 6px; }
+  .matrix td { width:42px; height:42px; text-align:center; }
+  .matrix td label { display:flex; align-items:center; justify-content:center; width:100%; height:42px; cursor:pointer; }
+  .matrix td input { width:22px; height:22px; accent-color:var(--ink); margin:0; }
+  .matrix td.self { background:repeating-linear-gradient(135deg, transparent 0 5px, #b9b19a 5px 6px); }
+  .matrix tbody tr:hover td:not(.self), .matrix tbody tr:hover .rowh { background:#e0d6bd; }
   /* Escritorio: aprovecha el ancho con dos columnas */
   @media (min-width:900px) {
     body { font-size:19px; }
     main { padding-top:36px; }
-    .cols { display:grid; grid-template-columns:1fr 1fr; column-gap:56px; align-items:start; }
+    .cols { display:grid; grid-template-columns:minmax(340px,5fr) minmax(0,7fr); column-gap:56px; align-items:start; }
     .cols > div > .card:first-child { border-top:0; padding-top:4px; }
     .cols > div + div { border-left:1px solid var(--ink); padding-left:56px; margin-left:-28px; }
     .home { display:grid; grid-template-columns:1fr 1fr; column-gap:56px; align-items:start; }
     .home .card { border-top:0; padding-top:4px; }
     .items { display:grid; grid-template-columns:1fr 1fr; column-gap:20px; }
     .gifts { display:grid; grid-template-columns:1fr 1fr; column-gap:32px; }
-    .gifts .gift:nth-child(2) { border-top:1px dotted var(--ink); }
     .row > button, .row > a { flex:0 1 auto; min-width:140px; }
     .row > a button { width:auto; }
   }
+  @media (min-width:1250px) { .items, .gifts { grid-template-columns:repeat(3,1fr); } .gifts { column-gap:24px; } }
   @media (max-width:420px) { .gift img { width:84px; height:84px; } body { font-size:17px; } }
 </style>
 </head>
@@ -126,7 +138,7 @@ async function admin(t) {
   store.add({ t, name: g.name });
   const origin = location.origin;
   // Exclusiones pendientes de guardar (se conservan aunque la página se redibuje por otra acción)
-  let ex = {};
+  let ex = {}, mutual = true;
   const syncEx = (fromServer) => {
     const next = {};
     g.participants.forEach(p => { next[p.id] = fromServer || !ex[p.id] ? [...p.exclusions] : ex[p.id].filter(e => g.participants.some(x => x.id === e)); });
@@ -159,9 +171,14 @@ async function admin(t) {
     </div></div><div>
     <div class="card"><h3>Exclusiones</h3>
       ${g.participants.length < 2 ? '<p class="muted">Añade al menos dos participantes para poder marcar exclusiones.</p>' : `
-      <p class="muted">Marca a quién <b>no</b> puede regalar cada persona (por ejemplo, su pareja). Un solo botón guarda todo.</p>
-      ${g.participants.map(p => `<p class="lbl">${esc(p.name)} no puede regalar a</p>
-        <div class="exgrid">${g.participants.filter(o => o.id !== p.id).map(o => `<label class="chk"><input type="checkbox" data-p="${p.id}" value="${o.id}" ${ex[p.id].includes(o.id) ? 'checked' : ''}> ${esc(o.name)}</label>`).join('')}</div>`).join('')}
+      <p class="muted">Cada fila es quien regala; marca las columnas a quienes <b>no</b> puede regalar (por ejemplo, su pareja).</p>
+      <label class="chk mutual"><input type="checkbox" id="mutual" ${mutual ? 'checked' : ''}> Marcar también la inversa (si A no regala a B, B tampoco a A)</label>
+      <div class="matrix"><table>
+        <thead><tr><th class="corner"></th>${g.participants.map(o => `<th class="col" title="${esc(o.name)}"><div>${esc(o.name)}</div></th>`).join('')}</tr></thead>
+        <tbody>${g.participants.map(p => `<tr><th class="rowh">${esc(p.name)}</th>${g.participants.map(o => o.id === p.id
+          ? '<td class="self"></td>'
+          : `<td><label><input type="checkbox" data-p="${p.id}" value="${o.id}" aria-label="${esc(p.name)} no regala a ${esc(o.name)}" ${ex[p.id].includes(o.id) ? 'checked' : ''}></label></td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>
       <div class="row"><button id="exsave">Guardar exclusiones</button></div>`}</div>
     <div class="card"><h3>Sorteo</h3>
       <p>${g.drawn ? 'Sorteo hecho. Los enlaces ya muestran a quién regala cada uno.' : 'Aún sin sortear.'}</p>
@@ -174,11 +191,16 @@ async function admin(t) {
     document.getElementById('gsave').onclick = update(() => api('PUT', base, { name: gname.value, budget: gbudget.value }));
     document.getElementById('padd').onclick = update(() => api('POST', base + '/participants', { name: pname.value }));
     pname.onkeydown = e => { if (e.key === 'Enter') padd.click(); };
+    const setEx = (p, o, on) => { ex[p] = ex[p].filter(e => e !== o); if (on) ex[p].push(o); };
     document.querySelectorAll('input[data-p]').forEach(c => c.onchange = () => {
-      const list = ex[c.dataset.p].filter(e => e !== c.value);
-      if (c.checked) list.push(c.value);
-      ex[c.dataset.p] = list;
+      setEx(c.dataset.p, c.value, c.checked);
+      if (mutual) {
+        setEx(c.value, c.dataset.p, c.checked);
+        const twin = document.querySelector(`input[data-p="${c.value}"][value="${c.dataset.p}"]`);
+        if (twin) twin.checked = c.checked;
+      }
     });
+    const mu = document.getElementById('mutual'); if (mu) mu.onchange = () => { mutual = mu.checked; };
     const exsave = document.getElementById('exsave');
     if (exsave) exsave.onclick = update(async () => {
       const changed = g.participants.some(p => JSON.stringify([...ex[p.id]].sort()) !== JSON.stringify([...p.exclusions].sort()));
