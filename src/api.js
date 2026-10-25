@@ -63,7 +63,7 @@ export async function handleApi(request, env) {
     return json(200, { adminToken });
   }
 
-  if ((m = url.match(/^\/api\/admin\/(\w+)(?:\/(draw|participants)(?:\/(\w+))?)?$/))) {
+  if ((m = url.match(/^\/api\/admin\/(\w+)(?:\/(draw|participants|exclusions)(?:\/(\w+))?)?$/))) {
     const g = await db.prepare('SELECT * FROM groups WHERE admin_token = ?').bind(m[1]).first();
     if (!g) return json(404, { error: 'Grupo no encontrado' });
     const [, , sub, pid] = m;
@@ -108,6 +108,21 @@ export async function handleApi(request, env) {
         }
         if (stmts.length) await db.batch(stmts);
       } else return json(405, { error: 'Método no permitido' });
+      return json(200, await adminView(db, g));
+    }
+    // Exclusiones de todos a la vez: { exclusions: { [participanteId]: [ids que no puede regalar] } }
+    if (sub === 'exclusions' && method === 'PUT') {
+      const ps = await members(db, g.id);
+      const valid = new Set(ps.map(x => x.id));
+      const stmts = [];
+      for (const p of ps) {
+        const want = body.exclusions && body.exclusions[p.id];
+        if (!Array.isArray(want)) continue;
+        const ex = [...new Set(want)].filter(e => valid.has(e) && e !== p.id);
+        if (JSON.stringify([...ex].sort()) !== JSON.stringify([...p.exclusions].sort()))
+          stmts.push(db.prepare('UPDATE participants SET exclusions = ? WHERE id = ?').bind(JSON.stringify(ex), p.id));
+      }
+      if (stmts.length) await db.batch([...stmts, resetDraw(db, g.id)]);
       return json(200, await adminView(db, g));
     }
     if (sub === 'draw' && method === 'POST') {

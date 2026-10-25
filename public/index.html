@@ -10,7 +10,8 @@
   * { box-sizing:border-box; }
   html { -webkit-text-size-adjust:100%; }
   body { margin:0; background:var(--paper); color:var(--ink); font:18px/1.55 "Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif; }
-  main { max-width:640px; margin:0 auto; padding:20px var(--gap) 56px; }
+  main { max-width:1080px; margin:0 auto; padding:20px var(--gap) 56px; }
+  main.narrow { max-width:940px; }
   a { color:var(--seal); text-underline-offset:3px; }
   h1 { margin:0 0 22px; padding-bottom:12px; border-bottom:4px double var(--ink); font-size:clamp(1.9rem,9vw,2.7rem); line-height:1.05; font-weight:700; letter-spacing:-.01em; }
   h1 a { color:inherit; text-decoration:none; } h1 em { color:var(--seal); }
@@ -18,6 +19,7 @@
   h3 { margin:0 0 4px; font-size:1.2rem; }
   .card { padding:20px 0 24px; border-top:1px solid var(--ink); }
   .card:first-of-type { border-top:0; padding-top:4px; }
+  .exgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); column-gap:18px; }
   p { margin:.5em 0; }
   .muted { color:var(--muted); font-size:.92rem; line-height:1.45; }
   .lbl { margin:14px 0 0; font:600 .72rem/1.2 system-ui,sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
@@ -63,6 +65,21 @@
   .edit textarea { margin-top:8px; background:var(--paper); }
   .edit img { display:block; width:120px; height:120px; object-fit:cover; margin:12px 0 0; border:1.5px solid var(--ink); }
   .filebtn input { display:none; }
+  /* Escritorio: aprovecha el ancho con dos columnas */
+  @media (min-width:900px) {
+    body { font-size:19px; }
+    main { padding-top:36px; }
+    .cols { display:grid; grid-template-columns:1fr 1fr; column-gap:56px; align-items:start; }
+    .cols > div > .card:first-child { border-top:0; padding-top:4px; }
+    .cols > div + div { border-left:1px solid var(--ink); padding-left:56px; margin-left:-28px; }
+    .home { display:grid; grid-template-columns:1fr 1fr; column-gap:56px; align-items:start; }
+    .home .card { border-top:0; padding-top:4px; }
+    .items { display:grid; grid-template-columns:1fr 1fr; column-gap:20px; }
+    .gifts { display:grid; grid-template-columns:1fr 1fr; column-gap:32px; }
+    .gifts .gift:nth-child(2) { border-top:1px dotted var(--ink); }
+    .row > button, .row > a { flex:0 1 auto; min-width:140px; }
+    .row > a button { width:auto; }
+  }
   @media (max-width:420px) { .gift img { width:84px; height:84px; } body { font-size:17px; } }
 </style>
 </head>
@@ -82,17 +99,17 @@ const store = {
   add(g) { try { localStorage.setItem('groups', JSON.stringify([...this.get().filter(x => x.t !== g.t), g])); } catch {} },
   remove(t) { try { localStorage.setItem('groups', JSON.stringify(this.get().filter(x => x.t !== t))); } catch {} },
 };
-const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { alert(e.message); } };
+const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { if (!e.silent) alert(e.message); } };
 
 // ---------- Inicio ----------
 function home() {
   const groups = store.get();
-  $app.innerHTML = `
+  $app.innerHTML = `<div class="home">
     <div class="card"><h2>Crear un grupo</h2>
       <p class="muted">Un grupo por familia (por ejemplo «Mi familia» y «Familia de mi mujer»).</p>
       <div class="row"><input id="name" type="text" placeholder="Nombre de la familia"><input id="budget" type="text" placeholder="Presupuesto (ej. 20 €)">
       <button id="go">Crear</button></div></div>
-    ${groups.length ? `<div class="card"><h2>Tus grupos</h2>${groups.map(g => `<p><a href="/a/${g.t}">${esc(g.name)}</a></p>`).join('')}</div>` : ''}`;
+    ${groups.length ? `<div class="card"><h2>Tus grupos</h2>${groups.map(g => `<p><a href="/a/${g.t}">${esc(g.name)}</a></p>`).join('')}</div>` : ''}</div>`;
   document.getElementById('go').onclick = guard(async () => {
     const name = document.getElementById('name').value;
     const { adminToken } = await api('POST', '/api/groups', { name, budget: document.getElementById('budget').value });
@@ -108,8 +125,16 @@ async function admin(t) {
   try { g = await api('GET', base); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   store.add({ t, name: g.name });
   const origin = location.origin;
+  // Exclusiones pendientes de guardar (se conservan aunque la página se redibuje por otra acción)
+  let ex = {};
+  const syncEx = (fromServer) => {
+    const next = {};
+    g.participants.forEach(p => { next[p.id] = fromServer || !ex[p.id] ? [...p.exclusions] : ex[p.id].filter(e => g.participants.some(x => x.id === e)); });
+    ex = next;
+  };
+  syncEx(true);
   const render = () => {
-    $app.innerHTML = `
+    $app.innerHTML = `<div class="cols"><div>
     <div class="card"><h2>${esc(g.name)}</h2>
       <p class="lbl">Nombre y presupuesto</p><div class="row" style="margin-top:0"><input id="gname" type="text" value="${esc(g.name)}"><input id="gbudget" type="text" value="${esc(g.budget)}" placeholder="Presupuesto (ej. 20 €)"><button class="sec" id="gsave">Guardar</button></div>
       <p class="muted">Guarda esta página en favoritos: es tu enlace de administrador. El sorteo no se muestra aquí, así que tú también puedes participar sin saber quién le toca a quién.</p></div>
@@ -119,9 +144,6 @@ async function admin(t) {
       <details class="p" data-id="${p.id}"><summary>${esc(p.name)}</summary>
         <div>
           <p class="muted">Regalos que ha pedido: ${p.giftCount}. Cada persona los añade desde su enlace de edición.</p>
-          ${g.participants.length > 1 ? `<p class="lbl">No puede regalar a</p>
-          ${g.participants.filter(o => o.id !== p.id).map(o => `<label class="chk"><input type="checkbox" class="ex" value="${o.id}" ${p.exclusions.includes(o.id) ? 'checked' : ''}> ${esc(o.name)}</label>`).join('')}` : ''}
-          <div class="row"><button class="sec save">Guardar</button><button class="danger del">Eliminar</button></div>
           ${[
             ['Enlace para editar sus regalos', '/e/' + p.editToken, `Hola ${p.name}, apunta aquí los regalos que te gustaría recibir en el amigo invisible «${g.name}» (puedes cambiarlos cuando quieras): `],
             ['Enlace para ver a quién le regala', '/p/' + p.token, `Hola ${p.name}, mira a quién le haces el regalo en el amigo invisible «${g.name}»: `],
@@ -130,18 +152,37 @@ async function admin(t) {
           <div class="link">${origin}${path}</div>
           <div class="row"><button class="sec copy" data-url="${origin}${path}">Copiar</button>
           <a href="https://wa.me/?text=${encodeURIComponent(msg + origin + path)}" target="_blank" rel="noopener"><button class="sec" type="button">WhatsApp</button></a></div>`).join('')}
+          <div class="row" style="margin-top:20px"><button class="danger del">Eliminar a ${esc(p.name)}</button></div>
         </div></details>`).join('')}
-    </div>
+    </div></div><div>
+    <div class="card"><h3>Exclusiones</h3>
+      ${g.participants.length < 2 ? '<p class="muted">Añade al menos dos participantes para poder marcar exclusiones.</p>' : `
+      <p class="muted">Marca a quién <b>no</b> puede regalar cada persona (por ejemplo, su pareja). Un solo botón guarda todo.</p>
+      ${g.participants.map(p => `<p class="lbl">${esc(p.name)} no puede regalar a</p>
+        <div class="exgrid">${g.participants.filter(o => o.id !== p.id).map(o => `<label class="chk"><input type="checkbox" data-p="${p.id}" value="${o.id}" ${ex[p.id].includes(o.id) ? 'checked' : ''}> ${esc(o.name)}</label>`).join('')}</div>`).join('')}
+      <div class="row"><button id="exsave">Guardar exclusiones</button></div>`}</div>
     <div class="card"><h3>Sorteo</h3>
       <p>${g.drawn ? 'Sorteo hecho. Los enlaces ya muestran a quién regala cada uno.' : 'Aún sin sortear.'}</p>
       <button id="draw">${g.drawn ? 'Repetir sorteo' : 'Hacer sorteo'}</button>
       ${g.drawn ? '<p class="muted">Repetir el sorteo cambia todos los resultados. Si añades o quitas gente o cambias exclusiones, hay que sortear de nuevo.</p>' : ''}</div>
-    <div class="card"><button class="danger" id="delg">Borrar este grupo</button></div>`;
+    <div class="card"><button class="danger" id="delg">Borrar este grupo</button></div>
+    </div></div>`;
 
-    const update = fn => guard(async () => { g = await fn(); const open = [...document.querySelectorAll('details[open]')].map(d => d.dataset.id); render(); open.forEach(i => { const d = document.querySelector(`details[data-id="${i}"]`); if (d) d.open = true; }); });
+    const update = (fn, fromServer) => guard(async () => { g = await fn(); syncEx(fromServer); const open = [...document.querySelectorAll('details[open]')].map(d => d.dataset.id); render(); open.forEach(i => { const d = document.querySelector(`details[data-id="${i}"]`); if (d) d.open = true; }); });
     document.getElementById('gsave').onclick = update(() => api('PUT', base, { name: gname.value, budget: gbudget.value }));
     document.getElementById('padd').onclick = update(() => api('POST', base + '/participants', { name: pname.value }));
     pname.onkeydown = e => { if (e.key === 'Enter') padd.click(); };
+    document.querySelectorAll('input[data-p]').forEach(c => c.onchange = () => {
+      const list = ex[c.dataset.p].filter(e => e !== c.value);
+      if (c.checked) list.push(c.value);
+      ex[c.dataset.p] = list;
+    });
+    const exsave = document.getElementById('exsave');
+    if (exsave) exsave.onclick = update(async () => {
+      const changed = g.participants.some(p => JSON.stringify([...ex[p.id]].sort()) !== JSON.stringify([...p.exclusions].sort()));
+      if (changed && g.drawn && !confirm('Cambiar las exclusiones anula el sorteo y habrá que repetirlo. ¿Continuar?')) throw Object.assign(new Error(), { silent: true });
+      return api('PUT', base + '/exclusions', { exclusions: ex });
+    }, true);
     document.getElementById('draw').onclick = update(async () => {
       if (g.drawn && !confirm('¿Repetir el sorteo? Cambiarán todos los resultados.')) return g;
       return api('POST', base + '/draw');
@@ -152,7 +193,6 @@ async function admin(t) {
     });
     document.querySelectorAll('details.p').forEach(d => {
       const id = d.dataset.id, url = base + '/participants/' + id;
-      d.querySelector('.save').onclick = update(() => api('PUT', url, { exclusions: [...d.querySelectorAll('.ex:checked')].map(c => c.value) }));
       d.querySelector('.del').onclick = update(async () => {
         if (!confirm('¿Eliminar a este participante? Habrá que repetir el sorteo.')) return g;
         return api('DELETE', url);
@@ -190,7 +230,7 @@ async function person(t) {
   const show = () => {
     $app.innerHTML = `<div class="card"><h2>Hola, ${esc(d.name)}</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
       ${d.target ? `<div class="tag"><small>Le haces el regalo a</small><strong>${esc(d.target.name)}</strong></div>
-        <p class="lbl">Lo que le gustaría</p>${d.target.wishlist.length ? d.target.wishlist.map(giftHtml).join('') : '<p class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</p>'}
+        <p class="lbl">Lo que le gustaría</p>${d.target.wishlist.length ? '<div class="gifts">' + d.target.wishlist.map(giftHtml).join('') + '</div>' : '<p class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</p>'}
         <p class="muted">Su lista puede cambiar: se actualiza cada vez que abres esta página.</p>`
         : '<p>El sorteo todavía no se ha hecho. Vuelve a abrir este enlace más tarde.</p>'}</div>`;
   };
@@ -210,7 +250,7 @@ async function editor(t) {
   $app.innerHTML = `
     <div class="card"><h2>Hola, ${esc(d.name)}</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
       <h3>Mi lista de deseos</h3><p class="muted">Añade regalos con enlace, foto y detalles (talla, color…). Puedes volver a este enlace cuando quieras para añadir, cambiar o quitar regalos; quien te toque verá siempre la versión más reciente. No lo compartas: con él se puede editar tu lista.</p>
-      <div id="items"></div>
+      <div id="items" class="items"></div>
       <div class="row"><button class="sec" id="add">+ Añadir regalo</button><button id="save">Guardar</button><span id="ok" class="muted"></span></div></div>`;
   const box = document.getElementById('items');
   const draw = () => {
@@ -241,6 +281,7 @@ async function editor(t) {
 }
 
 const m = location.pathname.match(/^\/(a|p|e)\/(\w+)/);
+if (m && m[1] !== 'a') document.querySelector('main').classList.add('narrow');
 if (!m) home(); else if (m[1] === 'a') admin(m[2]); else if (m[1] === 'e') editor(m[2]); else person(m[2]);
 </script>
 </body>
