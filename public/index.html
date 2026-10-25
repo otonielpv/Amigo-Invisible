@@ -148,13 +148,24 @@ async function person(t) {
   try { d = await api('GET', url); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   let items = d.wishlist.map(i => ({ ...i }));
   $app.innerHTML = `
-    <div class="card"><h2>Hola, ${esc(d.name)} 👋</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
-      ${d.target ? `<p>Le haces el regalo a:</p><div class="big">${esc(d.target.name)}</div>
-        <p><b>Lo que le gustaría:</b></p>${d.target.wishlist.length ? d.target.wishlist.map(giftHtml).join('') : '<p class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</p>'}`
-        : '<p>El sorteo todavía no se ha hecho. Vuelve a abrir este enlace más tarde.</p>'}</div>
-    <div class="card"><h3>Mi lista de deseos</h3><p class="muted">Añade regalos con enlace, foto y detalles (talla, color…) para que sea fácil acertar.</p>
+    <div class="card" id="top"></div>
+    <div class="card"><h3>Mi lista de deseos</h3><p class="muted">Añade regalos con enlace, foto y detalles (talla, color…). Puedes volver a este enlace cuando quieras para añadir, cambiar o quitar regalos; quien te toque verá siempre la versión más reciente.</p>
       <div id="items"></div>
       <div class="row"><button class="sec" id="add">+ Añadir regalo</button><button id="save">Guardar</button><span id="ok" class="muted"></span></div></div>`;
+  const top = document.getElementById('top');
+  const showTop = () => {
+    top.innerHTML = `<h2>Hola, ${esc(d.name)} 👋</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
+      ${d.target ? `<p>Le haces el regalo a:</p><div class="big">${esc(d.target.name)}</div>
+        <p><b>Lo que le gustaría:</b></p>${d.target.wishlist.length ? d.target.wishlist.map(giftHtml).join('') : '<p class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</p>'}
+        <p class="muted">Su lista puede cambiar: se actualiza cada vez que abres esta página.</p>`
+        : '<p>El sorteo todavía no se ha hecho. Vuelve a abrir este enlace más tarde.</p>'}`;
+  };
+  showTop();
+  // Al volver a la pestaña, recarga solo la parte del amigo invisible (no toca lo que estás editando)
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    try { const f = await api('GET', url); d = { ...d, drawn: f.drawn, target: f.target, budget: f.budget }; showTop(); } catch {}
+  });
   const box = document.getElementById('items');
   const draw = () => {
     box.innerHTML = items.map((i, n) => `<div class="edit" data-n="${n}">
