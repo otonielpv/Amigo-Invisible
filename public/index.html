@@ -5,32 +5,69 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Amigo invisible</title>
 <style>
-  :root { --bg:#f6f3ee; --card:#fff; --ink:#222; --muted:#777; --accent:#c0392b; --line:#e5dfd5; }
-  * { box-sizing: border-box; }
-  body { margin:0; font:16px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink); }
-  main { max-width:720px; margin:0 auto; padding:16px; }
-  h1 { color:var(--accent); } h1 a { color:inherit; text-decoration:none; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0; }
-  input, textarea, button { font:inherit; padding:8px 10px; border-radius:8px; border:1px solid var(--line); }
-  textarea, input[type=text] { width:100%; }
-  button { background:var(--accent); color:#fff; border:0; cursor:pointer; }
-  button.sec { background:#eee; color:var(--ink); } button.danger { background:#888; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; } .row > input { flex:1; min-width:120px; }
-  .muted { color:var(--muted); font-size:.9em; } .err { color:var(--accent); }
-  .big { font-size:2em; font-weight:bold; text-align:center; color:var(--accent); margin:8px 0; }
-  details summary { cursor:pointer; font-weight:600; }
-  label.chk { display:inline-block; margin:2px 10px 2px 0; }
-  .gift { display:flex; gap:12px; border-top:1px solid var(--line); padding:10px 0; }
-  .gift img { width:96px; height:96px; object-fit:cover; border-radius:8px; flex:none; cursor:zoom-in; }
+  /* Papel, tinta y un sello rojo. Sin esquinas redondeadas, sin degradados. */
+  :root { --paper:#ece3d0; --sheet:#f6f0e2; --ink:#232b27; --muted:#666659; --seal:#9e3a26; --kraft:#d6b883; --gap:max(18px, env(safe-area-inset-left)); }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:18px/1.55 "Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif; }
+  main { max-width:640px; margin:0 auto; padding:20px var(--gap) 56px; }
+  a { color:var(--seal); text-underline-offset:3px; }
+  h1 { margin:0 0 22px; padding-bottom:12px; border-bottom:4px double var(--ink); font-size:clamp(1.9rem,9vw,2.7rem); line-height:1.05; font-weight:700; letter-spacing:-.01em; }
+  h1 a { color:inherit; text-decoration:none; } h1 em { color:var(--seal); }
+  h2 { margin:0 0 6px; font-size:1.55rem; line-height:1.2; }
+  h3 { margin:0 0 4px; font-size:1.2rem; }
+  .card { padding:20px 0 24px; border-top:1px solid var(--ink); }
+  .card:first-of-type { border-top:0; padding-top:4px; }
+  p { margin:.5em 0; }
+  .muted { color:var(--muted); font-size:.92rem; line-height:1.45; }
+  .lbl { margin:14px 0 0; font:600 .72rem/1.2 system-ui,sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .err { color:var(--seal); }
+
+  input, textarea, button, .filebtn { font:inherit; border-radius:0; }
+  input[type=text], textarea { width:100%; padding:11px 2px; color:var(--ink); background:transparent; border:0; border-bottom:1.5px solid var(--ink); font-size:1.05rem; -webkit-appearance:none; }
+  textarea { padding:10px; background:var(--sheet); border:1.5px solid var(--ink); resize:vertical; }
+  ::placeholder { color:#8d8a78; font-style:italic; }
+  :focus-visible { outline:3px solid var(--seal); outline-offset:2px; }
+  button, .filebtn { display:inline-flex; align-items:center; justify-content:center; min-height:48px; padding:0 18px; border:1.5px solid var(--ink); background:var(--ink); color:var(--sheet); cursor:pointer;
+    font:600 .8rem/1 system-ui,sans-serif; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; }
+  button:active { transform:translateY(1px); }
+  button.sec, .filebtn { background:transparent; color:var(--ink); }
+  button.danger { background:transparent; color:var(--seal); border-color:var(--seal); }
+  .row { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-top:12px; }
+  .row > input[type=text] { flex:1 1 200px; width:auto; }
+  .row > button, .row > a { flex:1 1 130px; } .row > a button { width:100%; }
+  .row > span { flex:1 1 100%; }
+
+  details { border-bottom:1px dotted var(--ink); }
+  summary { display:flex; justify-content:space-between; align-items:center; min-height:56px; font-size:1.2rem; font-weight:600; cursor:pointer; list-style:none; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:"+"; font:300 1.8rem/1 system-ui,sans-serif; }
+  details[open] > summary::after { content:"\2212"; }
+  details > div { padding:0 0 18px; }
+  label.chk { display:flex; align-items:center; gap:14px; min-height:46px; border-bottom:1px dotted #b9b19a; }
+  label.chk input { width:22px; height:22px; accent-color:var(--ink); flex:none; }
+  .link { margin-top:4px; padding:9px 10px; border:1px dashed var(--ink); background:var(--sheet); font:.78rem/1.4 ui-monospace,Menlo,Consolas,monospace; word-break:break-all; user-select:all; }
+
+  /* Etiqueta de regalo de papel de estraza para el sorteo */
+  .tag { position:relative; margin:18px 0 8px; padding:34px 18px 22px 22px; text-align:center; background:var(--kraft);
+    clip-path:polygon(30px 0,100% 0,100% 100%,0 100%,0 30px); }
+  .tag::before { content:""; position:absolute; top:11px; left:34px; width:12px; height:12px; border-radius:50%; background:var(--paper); box-shadow:inset 0 0 0 2px #00000030; }
+  .tag small { display:block; font:600 .72rem/1.2 system-ui,sans-serif; letter-spacing:.14em; text-transform:uppercase; }
+  .tag strong { display:block; margin-top:6px; font-size:clamp(2rem,11vw,3rem); line-height:1.1; font-style:italic; overflow-wrap:anywhere; }
+
+  .gift { display:flex; gap:14px; padding:14px 0; border-top:1px dotted var(--ink); }
+  .gift img { width:104px; height:104px; object-fit:cover; flex:none; border:1.5px solid var(--ink); cursor:zoom-in; }
   .gift .info { flex:1; min-width:0; overflow-wrap:anywhere; }
-  .edit { border:1px solid var(--line); border-radius:10px; padding:10px; margin:10px 0; }
-  .edit input[type=text] { margin-bottom:6px; }
-  .edit img { max-width:120px; max-height:120px; border-radius:8px; display:block; margin:6px 0; }
-  .link { word-break:break-all; font-size:.85em; background:#f3efe8; padding:6px; border-radius:6px; }
+  .edit { margin:16px 0; padding:4px 14px 16px; background:var(--sheet); border:1.5px solid var(--ink); }
+  .edit input[type=text] { background:transparent; }
+  .edit textarea { margin-top:8px; background:var(--paper); }
+  .edit img { display:block; width:120px; height:120px; object-fit:cover; margin:12px 0 0; border:1.5px solid var(--ink); }
+  .filebtn input { display:none; }
+  @media (max-width:420px) { .gift img { width:84px; height:84px; } body { font-size:17px; } }
 </style>
 </head>
 <body>
-<main><h1><a href="/">🎁 Amigo invisible</a></h1><div id="app"></div></main>
+<main><h1><a href="/">Amigo <em>invisible</em></a></h1><div id="app"></div></main>
 <script>
 const $app = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -53,7 +90,7 @@ function home() {
   $app.innerHTML = `
     <div class="card"><h2>Crear un grupo</h2>
       <p class="muted">Un grupo por familia (por ejemplo «Mi familia» y «Familia de mi mujer»).</p>
-      <div class="row"><input id="name" type="text" placeholder="Nombre de la familia"><input id="budget" type="text" placeholder="Presupuesto (ej. 20 €)" style="max-width:160px">
+      <div class="row"><input id="name" type="text" placeholder="Nombre de la familia"><input id="budget" type="text" placeholder="Presupuesto (ej. 20 €)">
       <button id="go">Crear</button></div></div>
     ${groups.length ? `<div class="card"><h2>Tus grupos</h2>${groups.map(g => `<p><a href="/a/${g.t}">${esc(g.name)}</a></p>`).join('')}</div>` : ''}`;
   document.getElementById('go').onclick = guard(async () => {
@@ -74,29 +111,29 @@ async function admin(t) {
   const render = () => {
     $app.innerHTML = `
     <div class="card"><h2>${esc(g.name)}</h2>
-      <div class="row"><input id="gname" type="text" value="${esc(g.name)}"><input id="gbudget" type="text" value="${esc(g.budget)}" placeholder="Presupuesto" style="max-width:140px"><button class="sec" id="gsave">Guardar</button></div>
+      <p class="lbl">Nombre y presupuesto</p><div class="row" style="margin-top:0"><input id="gname" type="text" value="${esc(g.name)}"><input id="gbudget" type="text" value="${esc(g.budget)}" placeholder="Presupuesto (ej. 20 €)"><button class="sec" id="gsave">Guardar</button></div>
       <p class="muted">Guarda esta página en favoritos: es tu enlace de administrador. El sorteo no se muestra aquí, así que tú también puedes participar sin saber quién le toca a quién.</p></div>
     <div class="card"><h3>Participantes (${g.participants.length})</h3>
       <div class="row"><input id="pname" type="text" placeholder="Nombre"><button id="padd">Añadir</button></div>
       ${g.participants.map(p => `
-      <details class="p" data-id="${p.id}" style="margin-top:10px"><summary>${esc(p.name)}</summary>
-        <div style="padding:8px 0">
+      <details class="p" data-id="${p.id}"><summary>${esc(p.name)}</summary>
+        <div>
           <p class="muted">Regalos que ha pedido: ${p.giftCount}. Cada persona los añade desde su enlace de edición.</p>
-          ${g.participants.length > 1 ? `<p class="muted" style="margin-bottom:2px">No puede regalar a:</p>
+          ${g.participants.length > 1 ? `<p class="lbl">No puede regalar a</p>
           ${g.participants.filter(o => o.id !== p.id).map(o => `<label class="chk"><input type="checkbox" class="ex" value="${o.id}" ${p.exclusions.includes(o.id) ? 'checked' : ''}> ${esc(o.name)}</label>`).join('')}` : ''}
-          <div class="row" style="margin-top:8px"><button class="sec save">Guardar</button><button class="danger del">Eliminar</button></div>
+          <div class="row"><button class="sec save">Guardar</button><button class="danger del">Eliminar</button></div>
           ${[
-            ['✏️ Enlace para editar sus regalos', '/e/' + p.editToken, `Hola ${p.name}, apunta aquí los regalos que te gustaría recibir en el amigo invisible «${g.name}» (puedes cambiarlos cuando quieras): `],
-            ['🎁 Enlace para ver a quién le regala', '/p/' + p.token, `Hola ${p.name}, mira a quién le haces el regalo en el amigo invisible «${g.name}»: `],
+            ['Enlace para editar sus regalos', '/e/' + p.editToken, `Hola ${p.name}, apunta aquí los regalos que te gustaría recibir en el amigo invisible «${g.name}» (puedes cambiarlos cuando quieras): `],
+            ['Enlace para ver a quién le regala', '/p/' + p.token, `Hola ${p.name}, mira a quién le haces el regalo en el amigo invisible «${g.name}»: `],
           ].map(([label, path, msg]) => `
-          <p class="muted" style="margin:10px 0 2px">${label} (solo para ${esc(p.name)}):</p>
+          <p class="lbl" style="margin-top:20px">${label}</p><p class="muted" style="margin:2px 0 6px">Solo para ${esc(p.name)}</p>
           <div class="link">${origin}${path}</div>
-          <div class="row" style="margin-top:6px"><button class="sec copy" data-url="${origin}${path}">Copiar</button>
+          <div class="row"><button class="sec copy" data-url="${origin}${path}">Copiar</button>
           <a href="https://wa.me/?text=${encodeURIComponent(msg + origin + path)}" target="_blank" rel="noopener"><button class="sec" type="button">WhatsApp</button></a></div>`).join('')}
         </div></details>`).join('')}
     </div>
     <div class="card"><h3>Sorteo</h3>
-      <p>${g.drawn ? '✅ Sorteo hecho. Los enlaces ya muestran a quién regala cada uno.' : 'Aún sin sortear.'}</p>
+      <p>${g.drawn ? 'Sorteo hecho. Los enlaces ya muestran a quién regala cada uno.' : 'Aún sin sortear.'}</p>
       <button id="draw">${g.drawn ? 'Repetir sorteo' : 'Hacer sorteo'}</button>
       ${g.drawn ? '<p class="muted">Repetir el sorteo cambia todos los resultados. Si añades o quitas gente o cambias exclusiones, hay que sortear de nuevo.</p>' : ''}</div>
     <div class="card"><button class="danger" id="delg">Borrar este grupo</button></div>`;
@@ -130,7 +167,7 @@ async function admin(t) {
 const safeUrl = u => /^https?:\/\//i.test(u) ? u : '';
 const giftHtml = i => `<div class="gift">${i.photo ? `<img src="${i.photo}" alt="" onclick="window.open(this.src)">` : ''}
   <div class="info"><b>${esc(i.title || 'Regalo')}</b>
-  ${safeUrl(i.url) ? `<br><a href="${esc(i.url)}" target="_blank" rel="noopener noreferrer">🔗 Ver enlace</a>` : ''}
+  ${safeUrl(i.url) ? `<br><a href="${esc(i.url)}" target="_blank" rel="noopener noreferrer">Ver enlace →</a>` : ''}
   ${i.details ? `<br>${esc(i.details).replace(/\n/g, '<br>')}` : ''}</div></div>`;
 
 // Reduce la foto a un JPEG pequeño para que no pese
@@ -151,9 +188,9 @@ async function person(t) {
   let d;
   try { d = await api('GET', url); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   const show = () => {
-    $app.innerHTML = `<div class="card"><h2>Hola, ${esc(d.name)} 👋</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
-      ${d.target ? `<p>Le haces el regalo a:</p><div class="big">${esc(d.target.name)}</div>
-        <p><b>Lo que le gustaría:</b></p>${d.target.wishlist.length ? d.target.wishlist.map(giftHtml).join('') : '<p class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</p>'}
+    $app.innerHTML = `<div class="card"><h2>Hola, ${esc(d.name)}</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
+      ${d.target ? `<div class="tag"><small>Le haces el regalo a</small><strong>${esc(d.target.name)}</strong></div>
+        <p class="lbl">Lo que le gustaría</p>${d.target.wishlist.length ? d.target.wishlist.map(giftHtml).join('') : '<p class="muted">Aún no ha puesto nada. Vuelve a mirar más tarde.</p>'}
         <p class="muted">Su lista puede cambiar: se actualiza cada vez que abres esta página.</p>`
         : '<p>El sorteo todavía no se ha hecho. Vuelve a abrir este enlace más tarde.</p>'}</div>`;
   };
@@ -171,18 +208,18 @@ async function editor(t) {
   try { d = await api('GET', url); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   let items = d.wishlist.map(i => ({ ...i }));
   $app.innerHTML = `
-    <div class="card"><h2>Hola, ${esc(d.name)} 👋</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
+    <div class="card"><h2>Hola, ${esc(d.name)}</h2><p class="muted">Amigo invisible «${esc(d.group)}»${d.budget ? ` · Presupuesto: <b>${esc(d.budget)}</b>` : ''}</p>
       <h3>Mi lista de deseos</h3><p class="muted">Añade regalos con enlace, foto y detalles (talla, color…). Puedes volver a este enlace cuando quieras para añadir, cambiar o quitar regalos; quien te toque verá siempre la versión más reciente. No lo compartas: con él se puede editar tu lista.</p>
       <div id="items"></div>
       <div class="row"><button class="sec" id="add">+ Añadir regalo</button><button id="save">Guardar</button><span id="ok" class="muted"></span></div></div>`;
   const box = document.getElementById('items');
   const draw = () => {
-    box.innerHTML = items.map((i, n) => `<div class="edit" data-n="${n}">
+    box.innerHTML = items.map((i, n) => `<div class="edit" data-n="${n}"><p class="lbl">Regalo n.º ${n + 1}</p>
       <input type="text" class="t" placeholder="¿Qué quieres? (ej. Zapatillas running)" value="${esc(i.title)}">
       <input type="text" class="u" placeholder="Enlace de la tienda (https://…)" value="${esc(i.url)}">
       <textarea class="x" rows="2" placeholder="Detalles: talla, color, modelo…">${esc(i.details)}</textarea>
       ${i.photo ? `<img src="${i.photo}" alt="">` : ''}
-      <div class="row"><label class="muted">📷 <input type="file" class="f" accept="image/*" style="max-width:220px"></label>
+      <div class="row"><label class="filebtn">${i.photo ? 'Cambiar foto' : 'Añadir foto'}<input type="file" class="f" accept="image/*"></label>
       ${i.photo ? '<button class="sec rp">Quitar foto</button>' : ''}<button class="danger rm">Eliminar</button></div></div>`).join('');
     box.querySelectorAll('.edit').forEach(e => {
       const i = items[e.dataset.n];
@@ -199,7 +236,7 @@ async function editor(t) {
   document.getElementById('save').onclick = guard(async () => {
     const r = await api('PUT', url, { wishlist: items });
     items = r.wishlist.map(i => ({ ...i })); draw();
-    document.getElementById('ok').textContent = '✓ Guardado';
+    document.getElementById('ok').textContent = 'Guardado';
   });
 }
 
