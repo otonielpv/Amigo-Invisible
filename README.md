@@ -1,22 +1,25 @@
 # Amigo invisible
 
-Web sencilla para organizar el amigo invisible de varias familias por separado. Sin dependencias (solo Node 18+).
-
-    npm start        # http://localhost:3000
-    npm test
+Web sencilla para organizar el amigo invisible de varias familias por separado. Funciona en **Cloudflare Pages + D1** (gratis).
 
 - Un grupo por familia, con presupuesto máximo.
-- Añade participantes, su lista de deseos y a quién **no** pueden regalar.
-- Enlace personal por participante (copiar o WhatsApp): muestra a quién regala, el presupuesto y los deseos de esa persona. Cada uno puede editar su propia lista.
-- El enlace de administrador (`/a/...`) no muestra el sorteo. Los datos se guardan en `data.json` (o `DATA_FILE`).
-- Para compartir los enlaces fuera de tu casa hay que desplegarlo en un servidor accesible (Render, Railway, un VPS…) con almacenamiento persistente para `data.json`.
+- Participantes con exclusiones («no puede regalar a…»).
+- Enlace personal por participante: muestra a quién regala y su lista de deseos (título, enlace, foto y detalles). Cada uno edita su propia lista.
+- El enlace de administrador (`/a/...`) no muestra el sorteo.
 
-## Despliegue
+## Desarrollo local
 
-Los datos viven en un fichero (`DATA_FILE`), así que el servidor necesita un **disco persistente** y **una sola instancia**. Sin disco, se perderían los grupos en cada reinicio.
+    npm install
+    npm run dev      # http://localhost:8788 (D1 local simulada)
+    npm test         # con el servidor anterior en marcha
 
-- **Fly.io** (`fly.toml`, suele costar céntimos al mes): `fly launch --no-deploy --copy-config`, `fly volumes create data --size 1 --region mad`, `fly deploy`.
-- **Render** (`render.yaml`): New → Blueprint. El disco persistente requiere plan de pago (Starter).
-- Cualquier sitio con Docker: `docker build -t amigo . && docker run -p 8080:8080 -v amigo-data:/data amigo`.
+## Despliegue gratuito en Cloudflare
 
-Haz copia de seguridad de `data.json` de vez en cuando.
+1. En el panel de Cloudflare: **Storage & Databases → D1 → Create database** (nombre: `amigo-invisible`). Las tablas se crean solas.
+2. **Workers & Pages → Create → Pages → Connect to Git**, elige este repositorio.
+   - Framework preset: *None*
+   - Build command: *(vacío)*
+   - Build output directory: `public`
+3. Tras el primer despliegue, en el proyecto: **Settings → Bindings → Add → D1 database**, nombre de variable `DB`, elige `amigo-invisible`. Guarda y vuelve a desplegar (**Deployments → Retry deployment**).
+
+Tendrás una dirección `https://<proyecto>.pages.dev`.

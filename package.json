@@ -1,8 +1,12 @@
 {
   "name": "amigo-invisible",
-  "version": "1.0.0",
-  "description": "Amigo invisible para familias, sin dependencias",
-  "main": "server.js",
-  "scripts": { "start": "node server.js", "test": "node test.js" },
-  "engines": { "node": ">=18" }
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Amigo invisible para familias en Cloudflare Pages + D1",
+  "scripts": {
+    "dev": "wrangler pages dev public --d1=DB --port 8788",
+    "test": "node test.js"
+  },
+  "devDependencies": { "wrangler": "^4" }
 }
