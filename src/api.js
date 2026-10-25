@@ -58,10 +58,10 @@ export async function handleApi(request, env) {
   // Contraseña opcional (secreto ADMIN_PASSWORD): protege crear grupos y toda la administración.
   // Los enlaces de los participantes (/e y /p) no la necesitan.
   const passwordOk = given => !env.ADMIN_PASSWORD || String(given ?? '') === env.ADMIN_PASSWORD;
-  if (method === 'GET' && url === '/api/config') return json(200, { passwordRequired: !!env.ADMIN_PASSWORD });
+  if (method === 'GET' && url === '/api/auth') return passwordOk(request.headers.get('x-password')) ? json(200, {}) : json(403, { error: 'Contraseña incorrecta', needPassword: true });
 
   if (method === 'POST' && url === '/api/groups') {
-    if (!passwordOk(body.password)) return json(403, { error: 'Contraseña incorrecta', needPassword: true });
+    if (!passwordOk(request.headers.get('x-password') ?? body.password)) return json(403, { error: 'Contraseña incorrecta', needPassword: true });
     const name = clean(body.name, 60);
     if (!name) return json(400, { error: 'Falta el nombre' });
     const adminToken = token();

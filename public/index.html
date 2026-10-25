@@ -116,24 +116,39 @@ const store = {
   add(g) { try { localStorage.setItem('groups', JSON.stringify([...this.get().filter(x => x.t !== g.t), g])); } catch {} },
   remove(t) { try { localStorage.setItem('groups', JSON.stringify(this.get().filter(x => x.t !== t))); } catch {} },
 };
+// Si hay contraseña configurada, la pide (y la recuerda mientras dure la sesión del navegador)
+async function requireLogin() {
+  let tried = false;
+  for (;;) {
+    try { await api('GET', '/api/auth'); return; } catch (e) {
+      if (!e.needPassword) throw e;
+      await new Promise(done => {
+        $app.innerHTML = `<div class="card"><h2>Acceso</h2><p class="muted">Esta página está protegida con contraseña.</p>
+          <div class="row"><input id="pw" type="password" placeholder="Contraseña" autocomplete="current-password"></div>
+          <div class="row"><button id="ok">Entrar</button></div>${tried ? '<p class="err">Contraseña incorrecta</p>' : ''}</div>`;
+        const go = () => { pw.set(document.getElementById('pw').value); tried = true; done(); };
+        document.getElementById('ok').onclick = go;
+        document.getElementById('pw').onkeydown = ev => { if (ev.key === 'Enter') go(); };
+        document.getElementById('pw').focus();
+      });
+    }
+  }
+}
 const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { if (!e.silent) alert(e.message); } };
 
 // ---------- Inicio ----------
-function home() {
+async function home() {
+  try { await requireLogin(); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   const groups = store.get();
   $app.innerHTML = `<div class="home">
     <div class="card"><h2>Crear un grupo</h2>
       <p class="muted">Un grupo por familia (por ejemplo «Mi familia» y «Familia de mi mujer»).</p>
       <div class="row"><input id="name" type="text" placeholder="Nombre de la familia"><input id="budget" type="text" placeholder="Presupuesto (ej. 20 €)"></div>
-      <div class="row" id="pwrow" hidden><input id="pw" type="password" placeholder="Contraseña" autocomplete="current-password"></div>
       <div class="row"><button id="go">Crear</button></div></div>
     ${groups.length ? `<div class="card"><h2>Tus grupos</h2>${groups.map(g => `<p><a href="/a/${g.t}">${esc(g.name)}</a></p>`).join('')}</div>` : ''}</div>`;
-  api('GET', '/api/config').then(c => { if (c.passwordRequired) document.getElementById('pwrow').hidden = false; }).catch(() => {});
   document.getElementById('go').onclick = guard(async () => {
     const name = document.getElementById('name').value;
-    const pass = document.getElementById('pw').value;
-    const { adminToken } = await api('POST', '/api/groups', { name, budget: document.getElementById('budget').value, password: pass });
-    if (pass) pw.set(pass);
+    const { adminToken } = await api('POST', '/api/groups', { name, budget: document.getElementById('budget').value });
     store.add({ t: adminToken, name });
     location.href = '/a/' + adminToken;
   });
@@ -143,21 +158,7 @@ function home() {
 async function admin(t) {
   const base = '/api/admin/' + t;
   let g;
-  for (;;) {
-    try { g = await api('GET', base); break; } catch (e) {
-      if (!e.needPassword) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
-      // Pide la contraseña y reintenta
-      await new Promise(done => {
-        $app.innerHTML = `<div class="card"><h2>Administración</h2><p class="muted">Esta página está protegida con contraseña.</p>
-          <div class="row"><input id="pw" type="password" placeholder="Contraseña" autocomplete="current-password"></div>
-          <div class="row"><button id="ok">Entrar</button></div>${pw.get() ? '<p class="err">Contraseña incorrecta</p>' : ''}</div>`;
-        const go = () => { pw.set(document.getElementById('pw').value); done(); };
-        document.getElementById('ok').onclick = go;
-        document.getElementById('pw').onkeydown = ev => { if (ev.key === 'Enter') go(); };
-        document.getElementById('pw').focus();
-      });
-    }
-  }
+  try { await requireLogin(); g = await api('GET', base); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   store.add({ t, name: g.name });
   const origin = location.origin;
   // Exclusiones pendientes de guardar (se conservan aunque la página se redibuje por otra acción)

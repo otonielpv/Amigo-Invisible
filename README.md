@@ -22,6 +22,6 @@ El proyecto se despliega con `npx wrangler deploy` usando `wrangler.jsonc`:
 - Si usas otra base de datos D1, cambia `database_id` en `wrangler.jsonc` (se ve en el panel: Storage & Databases → D1).
 - Conecta el repositorio en Workers & Pages → Create → Import a repository. Comando de build: vacío. Comando de deploy: `npx wrangler deploy`.
 
-## Contraseña de administración (opcional)
+## Contraseña de acceso (opcional)
 
-Define el secreto `ADMIN_PASSWORD` en Cloudflare (proyecto → Settings → Variables and secrets → Add → tipo **Secret**). Con ella hay que introducir la contraseña para crear grupos y para abrir cualquier página de administración (`/a/…`), que es la que muestra los enlaces de todos. Los enlaces de los participantes (`/e/…` y `/p/…`) no la necesitan: su protección es un código largo imposible de adivinar. En local, ponla en un fichero `.dev.vars` (`ADMIN_PASSWORD=...`).
+Define el secreto `ADMIN_PASSWORD` en Cloudflare (proyecto → Settings → Variables and secrets → Add → tipo **Secret**). Con ella, la página principal y todas las páginas de administración (`/a/…`) piden la contraseña antes de mostrar nada, y la API de administración la exige. Solo se abren sin contraseña los enlaces de los participantes: editar sus regalos (`/e/…`) y ver a quién regalan (`/p/…`), protegidos por un código largo imposible de adivinar. En local, ponla en un fichero `.dev.vars` (`ADMIN_PASSWORD=...`).
