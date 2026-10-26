@@ -60,6 +60,14 @@ export async function handleApi(request, env) {
   const passwordOk = given => !env.ADMIN_PASSWORD || String(given ?? '') === env.ADMIN_PASSWORD;
   if (method === 'GET' && url === '/api/auth') return passwordOk(request.headers.get('x-password')) ? json(200, {}) : json(403, { error: 'Contraseña incorrecta', needPassword: true });
 
+  // Lista de grupos para la página principal. Solo con contraseña: sin ella no se expone ningún enlace de administración.
+  if (method === 'GET' && url === '/api/groups') {
+    if (!env.ADMIN_PASSWORD) return json(200, { groups: null });
+    if (!passwordOk(request.headers.get('x-password'))) return json(403, { error: 'Contraseña incorrecta', needPassword: true });
+    const rows = (await db.prepare('SELECT name, admin_token FROM groups ORDER BY rowid').all()).results;
+    return json(200, { groups: rows.map(r => ({ name: r.name, adminToken: r.admin_token })) });
+  }
+
   if (method === 'POST' && url === '/api/groups') {
     if (!passwordOk(request.headers.get('x-password') ?? body.password)) return json(403, { error: 'Contraseña incorrecta', needPassword: true });
     const name = clean(body.name, 60);

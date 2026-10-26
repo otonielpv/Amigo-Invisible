@@ -142,7 +142,9 @@ const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { if (!e
 // ---------- Inicio ----------
 async function home() {
   try { await requireLogin(); } catch (e) { $app.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
-  const groups = store.get();
+  let groups = store.get();
+  // Con contraseña, la lista sale del servidor y es la misma en todos los dispositivos
+  try { const r = await api('GET', '/api/groups'); if (r.groups) groups = r.groups.map(x => ({ t: x.adminToken, name: x.name })); } catch {}
   $app.innerHTML = `<div class="home">
     <div class="card"><h2>Crear un grupo</h2>
       <p class="muted">Un grupo por familia (por ejemplo «Mi familia» y «Familia de mi mujer»).</p>
